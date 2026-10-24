@@ -1,0 +1,5 @@
+{
+  "best_model": "Decision Tree",
+  "best_feature_set": "engineered",
+  "best_model_file": "decision_tree_engineered.joblib"
+}

@@ -1,0 +1,26 @@
+player,session,avg_score,hit_rate,mean_error_mm
+Player A (pro),1,35.333,0.383,7.432
+Player A (pro),2,35.4,0.4,7.906
+Player A (pro),3,36.667,0.417,7.652
+Player A (pro),4,43.333,0.583,6.204
+Player A (pro),5,40.667,0.517,5.98
+Player B (club),1,25.75,0.233,15.837
+Player B (club),2,26.85,0.25,15.118
+Player B (club),3,28.1,0.267,12.896
+Player B (club),4,30.433,0.3,11.678
+Player B (club),5,33.533,0.383,11.481
+Player C (low & left),1,26.683,0.217,13.657
+Player C (low & left),2,27.483,0.25,13.623
+Player C (low & left),3,27.017,0.233,14.592
+Player C (low & left),4,24.017,0.167,13.802
+Player C (low & left),5,30.2,0.283,11.925
+Player D (beginner),1,13.5,0.067,30.225
+Player D (beginner),2,14.5,0.067,27.301
+Player D (beginner),3,14.467,0.083,29.162
+Player D (beginner),4,15.3,0.033,29.087
+Player D (beginner),5,15.783,0.067,26.004
+Player E (bull hunter),1,25.567,0.2,12.821
+Player E (bull hunter),2,26.917,0.217,11.307
+Player E (bull hunter),3,24.75,0.15,12.388
+Player E (bull hunter),4,26.383,0.233,12.32
+Player E (bull hunter),5,27.717,0.233,11.32

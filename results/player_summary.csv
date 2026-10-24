@@ -1,0 +1,6 @@
+player,aim,throws,hit_rate_target,avg_score,three_dart_avg,mean_error_mm,spread_x_mm,spread_y_mm,bias_x_mm,bias_y_mm,miss_rate,bias
+Player A (pro),T20,300,0.46,38.28,114.84,7.035,5.276,5.872,0.347,0.196,0.0,centred
+Player B (club),T20,300,0.287,28.933,86.8,13.402,10.603,10.731,2.291,-1.366,0.0,right
+Player C (low & left),T20,300,0.23,27.08,81.24,13.52,9.164,9.165,-4.56,-6.756,0.0,low & left
+Player D (beginner),T20,300,0.063,14.71,44.13,28.356,22.935,21.295,0.908,-5.882,0.0,low
+Player E (bull hunter),IB,300,0.207,26.267,78.8,12.031,9.632,9.45,0.799,1.008,0.0,centred

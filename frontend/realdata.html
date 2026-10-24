@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Real Data · AI DartVision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<aside class="sidebar"></aside>
+<main class="main">
+  <header class="topbar">
+    <span class="chip sky" id="apiChip"><span class="dot"></span>Connecting</span>
+    <span class="chip plain">DeepDarts dataset · IEEE DataPort · doi 10.21227/05e7-xs69</span>
+  </header>
+  <div class="err" id="err"></div>
+
+  <section class="page-head">
+    <div>
+      <div class="eyebrow">06 / Real data <span class="sub">· DeepDarts (CVPR Sports 2021)</span></div>
+      <h1>Real throws, <em>real results.</em></h1>
+      <p class="lede">Dart tips from 16,050 labelled photos, converted to board coordinates with a homography through the 4 calibration points, then scored with the geometry rules. Models are tested on whole sessions they never saw.</p>
+    </div>
+    <div class="toggle" id="subsetT"><button data-v="all" class="on">All</button><button data-v="D1">D1 face-on</button><button data-v="D2">D2 angled</button></div>
+  </section>
+
+  <div class="grid g4" style="margin-bottom:22px">
+    <div class="tile dark"><div class="label">Unique real darts</div><div class="big" id="kDarts">–</div><div class="mono" style="font-size:12px;color:#C9D0DB" id="kDartsS"></div></div>
+    <div class="tile"><div class="label">3-dart average</div><div class="big red-t" id="k3da">–</div><div class="mono muted" style="font-size:12px" id="k3daS"></div></div>
+    <div class="tile"><div class="label">Miss rate</div><div class="big" id="kMiss">–</div><div class="mono muted" style="font-size:12px" id="kMissS"></div></div>
+    <div class="tile"><div class="label">Best model on real throws</div><div style="font-size:26px;font-weight:700" id="kBest">–</div><div class="mono muted" style="font-size:12px" id="kBestS"></div></div>
+  </div>
+
+  <div class="grid g2" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head"><div><h2>Where real darts landed</h2><div class="muted" style="font-size:13px;margin-top:4px" id="sampleNote"></div></div>
+        <span class="chip" id="nShown"></span></div>
+      <div class="board-wrap"><svg id="landing"></svg></div>
+      <div class="legend" style="margin-top:12px">
+        <span><i class="c" style="background:#E0533F"></i>Trebles</span><span><i class="c" style="background:#F2C14E"></i>Bulls</span>
+        <span><i class="c" style="background:#2E6F73"></i>Doubles</span><span><i class="c" style="background:#8FA3B8"></i>Singles</span><span><i class="c" style="background:#fff;border:1px solid #999"></i>Miss</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Real dart density</h2><div class="muted" style="font-size:13px;margin-top:4px">Blurred density of the sample</div></div></div>
+      <div class="board-wrap"><svg id="density"></svg></div>
+      <div class="grid g4" style="gap:10px;margin-top:12px">
+        <div class="inset" style="text-align:center"><div class="label">Treble</div><b class="mono" id="rT">–</b></div>
+        <div class="inset" style="text-align:center"><div class="label">Double</div><b class="mono" id="rD">–</b></div>
+        <div class="inset" style="text-align:center"><div class="label">Bull</div><b class="mono" id="rB">–</b></div>
+        <div class="inset" style="text-align:center"><div class="label">Miss</div><b class="mono" id="rM">–</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g-wide" style="margin-bottom:22px">
+    <div class="card dark">
+      <div class="card-head">
+        <div><div class="label">Held-out real sessions</div><h2 style="color:#fff;margin-top:6px">Synthetic vs real training data</h2></div>
+        <div class="toggle" id="featT"><button data-v="raw">Raw (x, y)</button><button data-v="engineered" class="on">Engineered</button></div>
+      </div>
+      <div class="table-scroll"><table class="tbl dark" id="cmp"></table></div>
+      <div class="label" style="margin-top:14px" id="splitNote"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Key findings</h2><span class="label">computed from results</span></div>
+      <div class="stack" style="gap:12px" id="findings"></div>
+    </div>
+  </div>
+
+  <div class="grid g-wide">
+    <div class="card">
+      <div class="card-head"><div><div class="label red">51 real sessions</div><h2 style="margin-top:6px">Average points per dart by session</h2></div>
+        <div class="toggle" id="trendT"><button data-v="avg" class="on">Points per dart</button><button data-v="miss">Miss rate</button></div></div>
+      <div id="trend"></div>
+      <div class="legend" style="justify-content:flex-start;margin-top:8px" id="trendLegend"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Dart 1 vs 2 vs 3</h2><span class="label">avg points</span></div>
+      <div class="stack" style="gap:14px" id="dartOrder"></div>
+      <div class="card sky" style="margin-top:16px;padding:12px 14px;font-size:13px;line-height:1.5;box-shadow:none" id="cite"></div>
+    </div>
+  </div>
+</main>
+
+<script src="js/board.js"></script>
+<script src="js/common.js"></script>
+<script>
+let RD = null, subset = "all", feat = "engineered", trendMode = "avg";
+const COLOR = l => l === "MISS" ? "#fff" : (["IB", "OB"].includes(l) ? "#F2C14E" : ({ T: "#E0533F", D: "#2E6F73" }[l[0]] || "#8FA3B8"));
+const ORDER = ["Decision Tree", "Random Forest", "KNN", "SVM", "Logistic Regression"];
+
+function renderBoards() {
+  const pts = RD.sample.filter(p => subset === "all" || p.subset === subset);
+  const L = drawBoard($("landing"));
+  pts.forEach(p => addDart(L, p.x, p.y, { r: .012, fill: COLOR(p.label), stroke: "#1B2536", title: `${p.label} (${p.score})` }));
+  $("nShown").textContent = `${pts.length} darts shown`;
+  $("sampleNote").textContent = `Random sample of ${RD.sample.length} from ${RD.darts.toLocaleString()} real darts`;
+  const D = drawBoard($("density"), { style: "schematic" });
+  addDensity($("density"), D, pts);
+  const share = f => pts.length ? (pts.filter(f).length / pts.length * 100).toFixed(1) + "%" : "–";
+  $("rT").textContent = share(p => p.label[0] === "T" && p.label !== "MISS");
+  $("rD").textContent = share(p => p.label[0] === "D");
+  $("rB").textContent = share(p => ["IB", "OB"].includes(p.label));
+  $("rM").textContent = share(p => p.label === "MISS");
+}
+
+function renderKpis() {
+  const s = subset === "all" ? null : RD.subsets[subset];
+  $("kDarts").textContent = (s ? s.darts : RD.darts).toLocaleString();
+  $("kDartsS").textContent = s ? `${subset} subset` : `${RD.visits.toLocaleString()} visits · ${RD.sessions} sessions`;
+  $("k3da").innerHTML = `${fmt(s ? s.avg_score * 3 : RD.three_dart_avg)}<small>pts</small>`;
+  $("k3daS").textContent = `${fmt(s ? s.avg_score : RD.avg_score_per_dart, 2)} per dart · best visit ${RD.max_visit}`;
+  $("kMiss").textContent = pct(s ? s.miss_rate : RD.miss_rate);
+  $("kMissS").textContent = "darts outside the double ring";
+}
+
+function renderCompare() {
+  const get = (m, ev) => RD.results.find(r => r.model === m && r.eval_set === ev && r.feature_set === feat);
+  $("cmp").innerHTML = `<thead><tr><th>Model</th><th class="num">Trained on synthetic</th><th class="num">Trained on real</th><th class="num">Wire acc. (syn / real)</th></tr></thead><tbody>` +
+    ORDER.map(m => {
+      const s = get(m, "real"), r = get(m, "real_trained");
+      if (!s || !r) return "";
+      const win = s.accuracy >= r.accuracy;
+      return `<tr><td><b>${m}</b></td>
+        <td class="num" style="${win ? "color:#8FD3D6;font-weight:700" : ""}">${pct(s.accuracy, 2)}</td>
+        <td class="num" style="${!win ? "color:#8FD3D6;font-weight:700" : ""}">${pct(r.accuracy, 2)}</td>
+        <td class="num">${fmt(s.boundary_accuracy, 3)} / ${fmt(r.boundary_accuracy, 3)}</td></tr>`;
+    }).join("") + "</tbody>";
+  $("splitNote").textContent = `Accuracy on ${RD.split.test_darts.toLocaleString()} darts from ${RD.split.test_sessions} held-out sessions · real models trained on ${RD.split.train_darts.toLocaleString()} darts from ${RD.split.train_sessions} sessions`;
+}
+
+function renderFindings() {
+  const ml = RD.results.filter(r => r.model !== "Geometry baseline");
+  const bestSyn = ml.filter(r => r.eval_set === "real").sort((a, b) => b.accuracy - a.accuracy)[0];
+  const bestReal = ml.filter(r => r.eval_set === "real_trained").sort((a, b) => b.accuracy - a.accuracy)[0];
+  const rf = (fs) => ml.find(r => r.model === "Random Forest" && r.eval_set === "real" && r.feature_set === fs);
+  $("kBest").textContent = bestSyn.model;
+  $("kBestS").textContent = `${pct(bestSyn.accuracy, 2)} · trained on synthetic (${bestSyn.feature_set})`;
+  const items = [
+    ["Synthetic training transfers", `${bestSyn.model} (${bestSyn.feature_set}) trained only on synthetic points scores ${pct(bestSyn.accuracy, 2)} of real darts correctly in unseen sessions.`],
+    ["Real training", `The best model trained on real throws reaches ${pct(bestReal.accuracy, 2)} (${bestReal.model}, ${bestReal.feature_set}).`],
+    ["Polar features matter more on real data", rf("raw") && rf("engineered") ? `Random Forest on synthetic-trained raw (x, y) scores ${pct(rf("raw").accuracy, 1)} on real darts vs ${pct(rf("engineered").accuracy, 1)} with r, sin θ, cos θ.` : ""],
+    ["Real darts are imbalanced", `Most real darts are singles; trebles are ${pct(RD.treble_rate)} and bulls ${pct(RD.bull_rate)}, so rare regions have few real examples, which is where balanced synthetic data helps.`],
+  ];
+  $("findings").innerHTML = items.filter(i => i[1]).map(([t, d]) => `<div class="inset"><b>${t}</b><div style="font-size:14px;line-height:1.5;margin-top:4px">${esc(d)}</div></div>`).join("");
+}
+
+function renderTrend() {
+  const t = RD.sessions_table.filter(s => subset === "all" || s.subset === subset);
+  const labels = t.map((s, i) => (i % 5 === 0 ? s.date.slice(5) : ""));
+  const series = trendMode === "avg"
+    ? [{ name: "Points per dart", values: t.map(s => s.avg_score), color: "#B83A2B", fmt: v => v.toFixed(1) }]
+    : [{ name: "Miss rate %", values: t.map(s => s.miss_rate * 100), color: "#2E6F73", fmt: v => v.toFixed(0) + "%" }];
+  lineChart($("trend"), labels, series);
+  $("trendLegend").innerHTML = `<span><i style="background:${series[0].color}"></i>${series[0].name}</span><span class="mono muted">${t.length} sessions · ${RD.date_range[0]} to ${RD.date_range[1]}</span>`;
+}
+
+function renderDartOrder() {
+  const v = RD.by_dart_number, max = Math.max(...Object.values(v));
+  $("dartOrder").innerHTML = Object.entries(v).map(([k, x]) => `<div>
+    <div class="row" style="justify-content:space-between"><b>Dart ${k}</b><span class="mono">${x.toFixed(2)} pts</span></div>
+    <div class="bar" style="margin-top:6px"><i style="width:${x / max * 100}%"></i></div></div>`).join("");
+  $("cite").innerHTML = `<b>Dataset:</b> ${esc(RD.citation)}`;
+}
+
+function bindToggle(id, fn) {
+  document.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => {
+    document.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle("on", x === b)); fn(b.dataset.v);
+  });
+}
+bindToggle("subsetT", v => { subset = v; renderBoards(); renderKpis(); renderTrend(); });
+bindToggle("featT", v => { feat = v; renderCompare(); });
+bindToggle("trendT", v => { trendMode = v; renderTrend(); });
+
+initShell("real").then(async () => {
+  try {
+    RD = await api("/api/real");
+    renderKpis(); renderBoards(); renderCompare(); renderFindings(); renderTrend(); renderDartOrder();
+  } catch (e) { showError(esc(e.message)); }
+}).catch(() => {});
+</script>
+</body>
+</html>

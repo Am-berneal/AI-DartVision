@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Batch Scoring · AI DartVision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<aside class="sidebar"></aside>
+<main class="main">
+  <header class="topbar">
+    <span class="chip sky" id="apiChip"><span class="dot"></span>Connecting</span>
+    <span class="chip plain" id="engineChip"></span>
+  </header>
+  <div class="err" id="err"></div>
+
+  <section class="page-head">
+    <div>
+      <div class="eyebrow"><span class="chip red">05 / Batch</span><span class="sub">CSV session scoring</span></div>
+      <h1>Score a whole <em>session.</em></h1>
+      <p class="lede">Upload a session of landing coordinates to classify every dart with the selected model and check each one against the geometry rules.</p>
+    </div>
+    <button class="btn btn-primary" id="dlTop" disabled>⇩ Download scored CSV</button>
+  </section>
+
+  <div class="drop" id="drop">
+    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:20px">
+      <div class="row" style="gap:16px;align-items:flex-start">
+        <div style="width:54px;height:54px;border-radius:14px;background:var(--blush);display:grid;place-items:center;font-size:24px;color:var(--red)">⇪</div>
+        <div>
+          <h2>Drop a CSV with columns x, y (and optional player)</h2>
+          <div class="muted" style="font-size:13px;margin-top:6px" id="unitHint"></div>
+        </div>
+      </div>
+      <div class="stack" style="gap:8px;align-items:flex-end">
+        <label class="btn btn-outline" style="cursor:pointer">Browse files<input type="file" id="file" accept=".csv" hidden></label>
+        <button class="btn btn-ghost" id="sampleBtn">▤ Load sample session</button>
+      </div>
+    </div>
+    <div class="file-chip" id="fileChip"></div>
+  </div>
+
+  <div id="results" style="display:none">
+    <div class="grid g3" style="margin:22px 0">
+      <div class="tile dark"><div class="row" style="justify-content:space-between"><span class="label">Session score</span><span class="chip gold" id="effTag"></span></div>
+        <div class="big xl" id="sTotal">–</div><div class="mono" style="font-size:12.5px;color:#C9D0DB" id="sTotalS"></div></div>
+      <div class="tile"><div class="row" style="justify-content:space-between"><span class="label">Darts classified</span><span class="chip" id="bounds"></span></div>
+        <div class="big xl" id="sN">–</div><div class="muted" style="font-size:12.5px" id="sNS"></div></div>
+      <div class="tile"><div class="row" style="justify-content:space-between"><span class="label">Geometry agreement</span><span class="chip" id="agreeTag"></span></div>
+        <div class="big xl teal-t" id="sAgree">–</div><div class="muted" style="font-size:12.5px" id="sAgreeS"></div></div>
+    </div>
+
+    <div class="grid g-wide">
+      <div class="card">
+        <div class="card-head">
+          <div><h2>Batch classification results</h2><div class="muted" style="font-size:13px;margin-top:4px">Model predictions vs geometry rules</div></div>
+          <div class="toggle" id="viewT"><button data-v="all" class="on">All</button><button data-v="bad">Discrepancies</button></div>
+        </div>
+        <div class="input" style="margin-bottom:14px"><input id="filter" placeholder="Filter by region or player, e.g. T20" style="font-size:15px;font-family:var(--sans)"></div>
+        <div class="table-scroll"><table class="tbl head-navy" id="tbl"></table></div>
+        <div class="row no-print" style="justify-content:space-between;margin-top:16px">
+          <span class="muted" style="font-size:13px" id="showing"></span>
+          <div class="row">
+            <select class="plain" id="rerunSel"></select>
+            <button class="btn btn-outline" id="rerunBtn">↻ Re-run</button>
+            <button class="btn btn-primary" id="dlBottom">⇩ Export scored</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div><h2>Spatial distribution</h2><div class="label" style="margin-top:4px">Landing coordinates</div></div><span class="chip" id="nPlotted"></span></div>
+        <div class="board-wrap" id="bw"><svg id="board"></svg><div class="tooltip" id="tip"></div></div>
+        <div class="legend" style="justify-content:flex-start;margin-top:14px">
+          <span><i class="c" style="background:#E0533F"></i>Trebles</span><span><i class="c" style="background:#F2C14E"></i>Bulls</span>
+          <span><i class="c" style="background:#8FD3D6"></i>Singles / doubles</span><span><i class="c" style="background:#fff;border:1px solid #999"></i>Miss</span>
+        </div>
+        <div class="inset kv" style="grid-template-columns:repeat(3,1fr);margin-top:14px;font-size:12px">
+          <div><span class="label">Mean r</span><b id="mr">–</b></div><div><span class="label">r std</span><b id="sr">–</b></div><div><span class="label">r range</span><b id="rr" style="font-size:14px">–</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="js/board.js"></script>
+<script src="js/common.js"></script>
+<script>
+let INPUT = null, RESULT = null, fileName = "", view = "all";
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) throw new Error("CSV needs a header and at least one row");
+  const head = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/^"|"$/g, ""));
+  const xi = head.indexOf("x"), yi = head.indexOf("y"), pi = head.indexOf("player");
+  if (xi < 0 || yi < 0) throw new Error("CSV needs columns named x and y");
+  const rows = [], skipped = [];
+  lines.slice(1).forEach((l, i) => {
+    const c = l.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+    const x = parseFloat(c[xi]), y = parseFloat(c[yi]);
+    if (Number.isFinite(x) && Number.isFinite(y)) rows.push({ x, y, player: pi >= 0 ? c[pi] : null });
+    else skipped.push(i + 2);
+  });
+  return { rows, skipped };
+}
+
+function unitHint() {
+  $("unitHint").textContent = settings.unit === "mm"
+    ? "Units: millimetres from board centre (board edge = 170 mm). Change units in the sidebar."
+    : "Units: normalised, board edge = 1.0 (e.g. T20 ≈ 0.00, 0.61). Change units in the sidebar.";
+}
+
+async function run(rows, name, skipped = []) {
+  INPUT = rows; fileName = name;
+  const chip = $("fileChip"); chip.style.display = "block";
+  chip.innerHTML = `✓ <b>${esc(name)}</b> (${rows.length} throws) · processing with ${esc(modelName(settings.model))}…`;
+  try {
+    const r = await api("/api/batch", { rows, unit: settings.unit, model: settings.model });
+    RESULT = r;
+    chip.innerHTML = `<div class="row" style="justify-content:space-between"><span>✓ <b>${esc(name)}</b> (${rows.length} throws) · ${esc(modelName(r.model))}${skipped.length ? ` · skipped rows ${skipped.join(", ")}` : ""}</span>
+      <span class="chip"><span class="dot"></span>Scored</span></div>`;
+    render();
+  } catch (e) { chip.innerHTML = `✗ ${esc(e.message)}`; }
+}
+
+function render() {
+  const s = RESULT.summary;
+  $("results").style.display = "block";
+  $("dlTop").disabled = false;
+  $("sTotal").innerHTML = `${s.total}<small>pts</small>`;
+  $("sTotalS").innerHTML = `Average per dart <b>${fmt(s.mean_score)}</b> · peak ${s.peak_score} (${esc(s.peak_label)}) · bulls ${s.bulls}`;
+  $("effTag").textContent = `${fmt(s.mean_score * 3)} / turn`;
+  $("sN").innerHTML = `${s.n}<small>/ ${INPUT.length}</small>`;
+  $("bounds").textContent = s.misses ? `${s.misses} miss${s.misses > 1 ? "es" : ""}` : "All on board";
+  $("sNS").textContent = `Radius range ${fmt(s.r_min, 3)} to ${fmt(s.r_max, 3)} (board edge 1.0)`;
+  $("sAgree").textContent = pct(s.agreement, 0);
+  $("agreeTag").textContent = `${s.n - s.discrepancies}/${s.n} match`;
+  $("agreeTag").className = s.discrepancies ? "chip red" : "chip";
+  $("sAgreeS").textContent = s.discrepancies ? `${s.discrepancies} dart(s) where the model disagrees with the rules — usually near a wire.` : `${modelName(RESULT.model)} and the geometry rules agree on every dart.`;
+  $("mr").textContent = fmt(s.mean_r, 3); $("sr").textContent = fmt(s.std_r, 3); $("rr").textContent = `${fmt(s.r_min, 2)}–${fmt(s.r_max, 2)}`;
+  renderTable(); renderBoard();
+}
+
+function renderTable() {
+  const q = $("filter").value.trim().toLowerCase();
+  let rows = RESULT.rows.filter(r => view === "all" || !r.agrees);
+  if (q) rows = rows.filter(r => [r.predicted, r.geometry, r.player].some(v => String(v).toLowerCase().includes(q)));
+  const u = settings.unit === "mm" ? 1 : 3;
+  $("tbl").innerHTML = `<thead><tr><th>#</th><th>Player</th><th>Coords (x, y)</th><th>Predicted</th><th class="num">Score</th><th>Geometry</th><th>Agrees</th></tr></thead><tbody>` +
+    (rows.length ? rows.map(r => `<tr><td class="mono">${r.n}</td><td>${esc(r.player || "–")}</td>
+      <td class="mono" style="font-size:13px">${r.x.toFixed(u)}, ${r.y.toFixed(u)}</td>
+      <td>${labelTag(r.predicted)}<div class="muted" style="font-size:11px">${esc(r.predicted_name)}</div></td>
+      <td class="num">${r.score}</td><td class="mono">${esc(r.geometry)}</td>
+      <td><span class="tag ${r.agrees ? "ok" : "bad"}">${r.agrees ? "● Agree" : "✗ Differs"}</span></td></tr>`).join("")
+      : `<tr><td colspan="7" class="empty">No rows match.</td></tr>`) + "</tbody>";
+  $("showing").textContent = `Showing ${rows.length} of ${RESULT.rows.length} throws`;
+}
+
+function renderBoard() {
+  const L = drawBoard($("board"));
+  const tip = $("tip");
+  RESULT.rows.forEach(r => {
+    const l = r.predicted;
+    const fill = l === "MISS" ? "#fff" : (["IB", "OB"].includes(l) ? "#F2C14E" : (l[0] === "T" ? "#E0533F" : "#8FD3D6"));
+    const c = addDart(L, r.x_norm, r.y_norm, { r: .032, fill, stroke: r.agrees ? "#1B2536" : "#B83A2B" });
+    c.style.cursor = "pointer";
+    c.addEventListener("mouseenter", () => {
+      const box = $("bw").getBoundingClientRect(), cb = c.getBoundingClientRect();
+      tip.style.left = (cb.left - box.left + cb.width / 2) + "px"; tip.style.top = (cb.top - box.top) + "px";
+      tip.textContent = `#${r.n} ${r.player || ""} → ${r.predicted} (${r.score})`; tip.style.display = "block";
+    });
+    c.addEventListener("mouseleave", () => tip.style.display = "none");
+  });
+  $("nPlotted").textContent = `${RESULT.rows.length} darts plotted`;
+}
+
+function scoredCSV() {
+  const h = "n,player,x,y,predicted_region,predicted_score,geometry_region,agrees,model";
+  return [h, ...RESULT.rows.map(r => [r.n, r.player, r.x, r.y, r.predicted, r.score, r.geometry, r.agrees, RESULT.model].join(","))].join("\n");
+}
+const dl = () => RESULT && downloadText("scored_" + fileName.replace(/\.csv$/i, "") + ".csv", scoredCSV());
+$("dlTop").onclick = dl; $("dlBottom").onclick = dl;
+
+function readFile(f) {
+  const rd = new FileReader();
+  rd.onload = () => { try { const p = parseCSV(rd.result); run(p.rows, f.name, p.skipped); } catch (e) { const c = $("fileChip"); c.style.display = "block"; c.textContent = "✗ " + e.message; } };
+  rd.readAsText(f);
+}
+$("file").onchange = e => e.target.files[0] && readFile(e.target.files[0]);
+const drop = $("drop");
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => e.dataTransfer.files[0] && readFile(e.dataTransfer.files[0]));
+$("sampleBtn").onclick = async () => {
+  try {
+    const s = await api("/api/sample");
+    const rows = s.rows.map(r => ({ x: r.x, y: r.y, player: r.player }));
+    if (settings.unit !== "norm") {           // the sample file is in normalised units
+      INPUT = rows; fileName = s.file;
+      document.querySelectorAll("#unitSeg button").forEach(b => b.classList.toggle("on", b.dataset.u === "norm"));
+      setSetting("unit", "norm");             // triggers a re-run below
+    } else run(rows, s.file);
+  } catch (e) { showError(esc(e.message)); }
+};
+$("filter").oninput = () => RESULT && renderTable();
+document.querySelectorAll("#viewT button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#viewT button").forEach(x => x.classList.toggle("on", x === b)); view = b.dataset.v; RESULT && renderTable();
+});
+$("rerunBtn").onclick = () => { if (!INPUT) return; setSetting("model", $("rerunSel").value); $("modelSel").value = settings.model; };
+
+onSettings(() => { unitHint(); $("engineChip").textContent = "Engine: " + modelName(settings.model); if ($("rerunSel").options.length) $("rerunSel").value = settings.model; if (INPUT) run(INPUT, fileName); });
+initShell("batch").then(() => {
+  unitHint();
+  $("engineChip").textContent = "Engine: " + modelName(settings.model);
+  $("rerunSel").innerHTML = MODELS.map(m => `<option value="${m.key}" ${m.key === settings.model ? "selected" : ""}>${m.name} (${m.feature_set})</option>`).join("");
+}).catch(() => {});
+</script>
+</body>
+</html>

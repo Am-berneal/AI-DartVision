@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model Scorecard · AI DartVision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<aside class="sidebar"></aside>
+<main class="main">
+  <header class="topbar">
+    <span class="chip sky" id="apiChip"><span class="dot"></span>Connecting</span>
+    <span class="chip plain">Values read from results/metrics.csv</span>
+  </header>
+  <div class="err" id="err"></div>
+
+  <section class="page-head">
+    <div>
+      <div class="eyebrow">04 / Models <span class="sub">· Evaluation</span></div>
+      <h1>Compare fairly. <em>Report honestly.</em></h1>
+      <p class="lede">Five classifiers trained on the same split and labels, benchmarked against the deterministic geometry scorer, including throws close to the wires.</p>
+    </div>
+    <div class="stack" style="gap:10px;align-items:flex-end">
+      <div class="toggle" id="evalT"><button data-v="test" class="on">Held-out test</button><button data-v="uniform">Uniform coverage</button><button data-v="real" class="real-only">Real throws</button><button data-v="real_trained" class="real-only">Trained on real</button></div>
+      <div class="toggle red" id="featT"><button data-v="raw">Raw (x, y)</button><button data-v="engineered" class="on">Engineered features</button></div>
+    </div>
+  </section>
+
+  <div class="grid g-wide" style="margin-bottom:22px">
+    <div class="card dark">
+      <div class="card-head">
+        <h2 style="color:#fff">Classifier benchmark</h2>
+        <span class="chip" id="nTest"></span>
+      </div>
+      <div class="table-scroll"><table class="tbl dark" id="bench"></table></div>
+      <div class="label" style="margin-top:14px">✓ Labels come from the geometry rules · wire accuracy = throws within ~1.7 mm of a wire</div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Feature ablation</h2><span class="label">Macro F1</span></div>
+      <div class="legend" style="justify-content:flex-start;margin-bottom:14px"><span><i style="background:#2E6F73"></i>Raw (x, y)</span><span><i style="background:#B83A2B"></i>Engineered (r, sin θ, cos θ)</span></div>
+      <div class="stack" style="gap:16px" id="ablation"></div>
+      <div class="card sky" style="margin-top:16px;padding:12px 14px;font-size:13.5px;line-height:1.5;box-shadow:none">Ring membership depends only on the radius r, so adding polar features lets models separate rings with simple splits instead of curved boundaries.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div><h2>Confusion matrix — key regions</h2><div class="muted" style="font-size:13px;margin-top:4px">Row-normalised % on the held-out test set. "Other" = predicted outside these regions.</div></div>
+      <div class="row"><span class="label">Model</span><select class="plain" id="cmModel"></select></div>
+    </div>
+    <div class="grid" style="grid-template-columns:1fr 260px;align-items:start">
+      <div class="table-scroll"><div class="cm" id="cm"></div></div>
+      <div class="stack" style="gap:14px">
+        <div class="tile"><div class="label">Wire boundary accuracy</div><div class="big" id="cWire">–</div><div class="muted" style="font-size:12.5px" id="cWireN"></div></div>
+        <div class="tile"><div class="label">Treble precision</div><div class="big" id="cTreb">–</div><div class="muted" style="font-size:12.5px">Macro precision over T1–T20</div></div>
+        <div class="tile"><div class="label">Score MAE</div><div class="big" id="cMae">–</div><div class="muted" style="font-size:12.5px">Mean absolute points error per dart</div></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="js/board.js"></script>
+<script src="js/common.js"></script>
+<script>
+let ROWS = [], evalSet = "test", feat = "engineered";
+const ORDER = ["Geometry baseline", "Decision Tree", "Random Forest", "KNN", "SVM", "Logistic Regression"];
+
+function renderBench() {
+  const rows = ROWS.filter(r => r.eval_set === evalSet && (r.feature_set === feat || r.model === "Geometry baseline"));
+  rows.sort((a, b) => ORDER.indexOf(a.model) - ORDER.indexOf(b.model));
+  const best = rows.filter(r => r.model !== "Geometry baseline").sort((a, b) => b.macro_f1 - a.macro_f1)[0];
+  $("bench").innerHTML = `<thead><tr><th>Model</th><th class="num">Accuracy</th><th class="num">Macro F1</th><th class="num">Wire acc.</th><th class="num">Train s</th></tr></thead><tbody>` +
+    rows.map(r => `<tr class="${r === best ? "hl" : ""}"><td><b>${esc(r.model)}</b>
+      ${r.model === "Geometry baseline" ? ' <span class="chip gold" style="margin-left:6px">Ground truth</span>' : ""}
+      ${r === best ? ' <span class="chip red" style="margin-left:6px">Top ML</span>' : ""}</td>
+      <td class="num">${fmt(r.accuracy, 3)}</td><td class="num">${fmt(r.macro_f1, 3)}</td>
+      <td class="num">${fmt(r.boundary_accuracy, 3)}</td><td class="num">${fmt(r.train_seconds, 2)}</td></tr>`).join("") + "</tbody>";
+  const n = rows[0];
+    const evName = { test: "Held-out synthetic", uniform: "Uniform synthetic", real: "Real DeepDarts · trained on synthetic", real_trained: "Real DeepDarts · trained on real" }[evalSet];
+    $("nTest").textContent = `${evName} · ${n ? n.n_boundary : 0} wire throws`;
+}
+
+function renderAblation() {
+  const ml = ORDER.slice(1);
+  $("ablation").innerHTML = ml.map(m => {
+    const raw = ROWS.find(r => r.model === m && r.feature_set === "raw" && r.eval_set === evalSet);
+    const eng = ROWS.find(r => r.model === m && r.feature_set === "engineered" && r.eval_set === evalSet);
+    if (!raw || !eng) return "";
+    const d = (eng.macro_f1 - raw.macro_f1) * 100;
+    return `<div>
+      <div class="row" style="justify-content:space-between"><b>${m}</b><span class="tag ${d >= 0 ? "t" : ""}">${d >= 0 ? "+" : ""}${d.toFixed(1)} pts</span></div>
+      <div class="row" style="gap:10px;margin-top:6px"><span class="mono teal-t" style="width:48px;font-size:13px">${fmt(raw.macro_f1, 3)}</span><div class="bar teal" style="flex:1"><i style="width:${raw.macro_f1 * 100}%"></i></div></div>
+      <div class="row" style="gap:10px;margin-top:4px"><span class="mono red-t" style="width:48px;font-size:13px">${fmt(eng.macro_f1, 3)}</span><div class="bar" style="flex:1"><i style="width:${eng.macro_f1 * 100}%"></i></div></div>
+    </div>`;
+  }).join("");
+}
+
+function cell(v, diag) {
+  if (diag) return `<div style="background:${v > 95 ? "#1B2536" : "#B83A2B"};color:#fff">${v.toFixed(1)}%</div>`;
+  if (v === 0) return `<div style="background:#EEF2F5;color:#A0A6B0">0</div>`;
+  const a = Math.min(.9, .15 + v / 30);
+  return `<div style="background:rgba(184,58,43,${a});color:${a > .5 ? "#fff" : "#7A2A20"}">${v.toFixed(1)}%</div>`;
+}
+async function renderCM() {
+  $("cm").innerHTML = '<div class="empty">Computing…</div>';
+  try {
+    const c = await api("/api/confusion?model=" + encodeURIComponent($("cmModel").value));
+    const cols = c.cols.length + 1;
+    let h = `<div class="h">true ↓ / pred →</div>` + c.cols.map(x => `<div class="h">${x}</div>`).join("");
+    c.rows.forEach((r, i) => { h += `<div class="h" style="text-align:left"><b>${r}</b></div>` + c.matrix[i].map((v, j) => cell(v, c.cols[j] === r)).join(""); });
+    $("cm").style.gridTemplateColumns = `90px repeat(${cols - 1}, minmax(48px, 1fr))`;
+    $("cm").innerHTML = h;
+    $("cWire").textContent = pct(c.report.boundary_accuracy);
+    $("cWireN").textContent = `${c.report.n_boundary} of ${c.n_test} test throws are within ~1.7 mm of a wire`;
+    $("cTreb").textContent = pct(c.report.treble_precision);
+    $("cMae").innerHTML = `${fmt(c.report.score_mae, 2)}<small>pts</small>`;
+  } catch (e) { $("cm").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+function bindToggle(id, fn) {
+  document.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => {
+    document.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle("on", x === b)); fn(b.dataset.v);
+  });
+}
+bindToggle("evalT", v => { evalSet = v; renderBench(); renderAblation(); });
+bindToggle("featT", v => { feat = v; renderBench(); });
+
+initShell("scorecard").then(async () => {
+    ROWS = (await api("/api/metrics")).rows;
+    if (!ROWS.some(r => r.eval_set === "real")) document.querySelectorAll(".real-only").forEach(b => b.style.display = "none");
+  renderBench(); renderAblation();
+  $("cmModel").innerHTML = MODELS.map(m => `<option value="${m.key}" ${m.key === settings.model ? "selected" : ""}>${m.name} (${m.feature_set})</option>`).join("");
+  $("cmModel").onchange = renderCM;
+  renderCM();
+}).catch(e => showError("Could not load metrics: " + esc(e.message)));
+onSettings(s => { if ($("cmModel").querySelector(`option[value="${s.model}"]`)) { $("cmModel").value = s.model; renderCM(); } });
+</script>
+</body>
+</html>

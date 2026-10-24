@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Player Analysis · AI DartVision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<aside class="sidebar"></aside>
+<main class="main">
+  <header class="topbar">
+    <span class="chip sky" id="apiChip"><span class="dot"></span>Connecting</span>
+    <span class="chip plain" id="dataChip"></span>
+    <span class="chip gold">Simulated data</span>
+  </header>
+  <div class="err" id="err"></div>
+
+  <section class="page-head">
+    <div>
+      <div class="eyebrow">02 / Players <span class="sub">· Longitudinal analysis</span></div>
+      <h1>Read the <em>patterns.</em></h1>
+      <p class="lede">Grouping, drift tendency and target accuracy across sessions, computed from landing coordinates.</p>
+    </div>
+    <div class="stack" style="gap:10px">
+      <div class="card" style="padding:12px 16px">
+        <div class="label">Active subject</div>
+        <select class="plain" id="playerSel" style="margin-top:6px;min-width:260px"></select>
+        <div class="mono muted" style="font-size:11.5px;margin-top:6px" id="subjMeta"></div>
+      </div>
+      <div class="row no-print">
+        <a class="btn btn-outline" href="coach.html" id="coachLink">✦ Open AI Coach</a>
+        <button class="btn btn-primary" onclick="window.print()">⇩ Export PDF report</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid g4" style="margin-bottom:22px">
+    <div class="tile"><div class="label" id="kHitL">Hit rate</div><div class="big" id="kHit">–</div><div class="mono muted" style="font-size:12px" id="kHitS"></div></div>
+    <div class="tile"><div class="label">3-dart average</div><div class="big red-t" id="k3da">–</div><div class="mono muted" style="font-size:12px" id="k3daS"></div></div>
+    <div class="tile"><div class="label">Mean error</div><div class="big" id="kErr">–</div><div class="mono muted" style="font-size:12px" id="kErrS"></div></div>
+    <div class="tile"><div class="label">Spatial tendency</div><div style="font-size:30px;font-weight:700" id="kBias">–</div><div class="mono muted" style="font-size:12px" id="kBiasS"></div>
+      <div class="bar"><i id="kBiasBar" style="width:0"></i></div></div>
+  </div>
+
+  <div class="grid g2" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Landing distribution</h2><div class="muted" style="font-size:13px;margin-top:4px">Each dart coloured by session</div></div>
+        <div class="toggle" id="zoomT"><button data-z="0" class="on">Full board</button><button data-z="1">Zoom to target</button></div>
+      </div>
+      <div class="legend" id="sessLegend" style="justify-content:flex-start;margin-bottom:10px"></div>
+      <div class="board-wrap"><svg id="landing"></svg></div>
+      <div class="chip sky" style="margin-top:12px" id="centroid"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Spatial density</h2><div class="muted" style="font-size:13px;margin-top:4px">Blurred density of all darts for this player</div></div>
+        <span class="chip" id="nDarts"></span>
+      </div>
+      <div class="board-wrap"><svg id="density"></svg></div>
+      <div class="card sky" style="margin-top:14px;padding:14px 16px;font-size:14px;line-height:1.55" id="diag"></div>
+    </div>
+  </div>
+
+  <div class="grid g-wide">
+    <div class="card">
+      <div class="card-head">
+        <div><div class="label red">Performance vectors</div><h2 style="margin-top:6px">Session progression</h2></div>
+        <div class="toggle" id="trendT"><button data-t="score" class="on">3-dart avg & hit rate</button><button data-t="err">Mean error</button></div>
+      </div>
+      <div id="trend"></div>
+      <div class="legend" id="trendLegend" style="justify-content:flex-start;margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><div class="label red">Cross-subject registry</div><h2 style="margin-top:6px">Player roster</h2></div><span class="label" id="rosterN"></span></div>
+      <div class="table-scroll"><table class="tbl" id="roster"></table></div>
+    </div>
+  </div>
+</main>
+
+<script src="js/board.js"></script>
+<script src="js/common.js"></script>
+<script>
+const SESS_COL = ["#2E6F73", "#6C7FA8", "#B83A2B", "#D4A64A", "#7B5EA7", "#3E8E5E"];
+let ROSTER = [], CUR = null, trendMode = "score", zoom = false;
+
+function renderBoards(d) {
+  const f = d.facts, aimSector = f.aim.length > 1 && f.aim !== "IB" && f.aim !== "OB" ? +f.aim.slice(1) : null;
+  const L = drawBoard($("landing"), { style: "schematic", highlight: aimSector });
+  d.throws.forEach(t => addDart(L, t.x, t.y, { r: zoom ? .009 : .016, fill: SESS_COL[(t.session - 1) % SESS_COL.length], stroke: "#fff", title: `S${t.session} #${t.throw}: ${t.label} (${t.score})` }));
+  const cx = d.throws.reduce((a, t) => a + t.x, 0) / d.throws.length, cy = d.throws.reduce((a, t) => a + t.y, 0) / d.throws.length;
+  svgEl("circle", { cx, cy: -cy, r: zoom ? .012 : .02, fill: "none", stroke: "#F2C14E", "stroke-width": .008 }, L);
+  svgEl("line", { x1: d.aim.x, y1: -d.aim.y, x2: cx, y2: -cy, stroke: "#F2C14E", "stroke-width": .006 }, L);
+  if (zoom) $("landing").setAttribute("viewBox", `${d.aim.x - .3} ${-d.aim.y - .3} .6 .6`);
+  $("centroid").innerHTML = `<span class="dot gold"></span>Group centre is ${fmt(f.bias_mm)} mm from the ${f.aim} centre (${esc(f.bias)})`;
+  const D = drawBoard($("density"), { style: "schematic" });
+  addDensity($("density"), D, d.throws);
+  if (zoom) $("density").setAttribute("viewBox", `${d.aim.x - .3} ${-d.aim.y - .3} .6 .6`);
+}
+
+function renderTrend(d) {
+  const labels = d.trend.map(t => "Session " + t.session);
+  let series;
+  if (trendMode === "score") series = [
+    { name: "3-dart average", values: d.trend.map(t => t.three_dart_avg), color: "#B83A2B" },
+    { name: "Hit rate", values: d.trend.map(t => t.hit_rate * 100), color: "#2E6F73", axis: "right", dash: true, fmt: v => v.toFixed(0) + "%" }];
+  else series = [{ name: "Mean error (mm)", values: d.trend.map(t => t.mean_error_mm), color: "#2E6F73", fmt: v => v.toFixed(1) }];
+  lineChart($("trend"), labels, series);
+  $("trendLegend").innerHTML = series.map(s => `<span><i style="background:${s.color}"></i>${s.name}</span>`).join("") +
+    `<span class="mono muted">Change: ${fmt(d.facts.first_session_3da)} → ${fmt(d.facts.last_session_3da)} (3-dart avg)</span>`;
+}
+
+function renderRoster() {
+  $("rosterN").textContent = `N = ${ROSTER.length}`;
+  $("roster").innerHTML = `<thead><tr><th>Subject</th><th class="num">3-dart</th><th class="num">Hit</th><th class="num">Error</th><th>Form</th></tr></thead><tbody>` +
+    ROSTER.map(p => `<tr class="${p.player === CUR ? "hl" : ""}" style="cursor:pointer" data-p="${esc(p.player)}">
+      <td><b>${esc(p.player.split(" (")[0])}</b><div class="mono muted" style="font-size:11px">${esc(p.bias)} · aim ${esc(p.aim)}</div></td>
+      <td class="num">${fmt(p.three_dart_avg)}</td><td class="num">${pct(p.hit_rate_target, 0)}</td>
+      <td class="num">${fmt(p.mean_error_mm)}mm</td>
+      <td><span class="tag ${p.form === "RISING" ? "ok" : (p.form === "FALLING" ? "bad" : "")}">${p.form}</span></td></tr>`).join("") + "</tbody>";
+  document.querySelectorAll("#roster tr[data-p]").forEach(r => r.onclick = () => { $("playerSel").value = r.dataset.p; load(r.dataset.p); });
+}
+
+let DATA = null;
+async function load(name) {
+  CUR = name; store.set("player", name);
+  try {
+    const d = await api("/api/players/" + encodeURIComponent(name));
+    DATA = d; const f = d.facts, row = ROSTER.find(p => p.player === name);
+    const cohortHit = ROSTER.reduce((a, p) => a + p.hit_rate_target, 0) / ROSTER.length;
+    $("subjMeta").textContent = `${f.sessions} sessions · ${f.throws} darts · aim ${f.aim}`;
+    $("kHitL").textContent = `Hit rate on ${f.aim}`;
+    $("kHit").innerHTML = `${fmt(f.hit_rate_pct, 0)}%<small>${f.hits}/${f.throws}</small>`;
+    $("kHitS").textContent = `Roster average ${pct(cohortHit, 1)}`;
+    $("k3da").innerHTML = `${fmt(f.three_dart_avg)}<small>pts/turn</small>`;
+    $("k3daS").textContent = `Best: ${fmt(f.best_session_3da)} (session ${f.best_session}) · roster ${fmt(d.cohort_3da)}`;
+    $("kErr").innerHTML = `${fmt(f.mean_error_mm)}<small>mm</small>`;
+    $("kErrS").textContent = `Spread σ ≈ ${fmt(f.spread_mm)} mm per axis`;
+    $("kBias").textContent = f.bias;
+    $("kBiasS").textContent = `Offset (${fmt(f.bias_x_mm)} mm, ${fmt(f.bias_y_mm)} mm)`;
+    $("kBiasBar").style.width = Math.min(100, f.bias_mm / 10 * 100) + "%";
+    $("nDarts").textContent = `${f.throws} darts`;
+    const off = f.top_off_target;
+    $("diag").innerHTML = `<b>Pattern summary:</b> ${off ? `when missing ${esc(f.aim)}, darts most often land in <b>${esc(off)}</b> (${fmt(f.top_off_target_pct)}% of all darts). ` : ""}` +
+      (f.bias === "centred" ? `The group is centred on the target (offset ${fmt(f.bias_mm)} mm)` : `The group centre sits ${fmt(f.bias_mm)} mm ${esc(f.bias)} of the target`) + ` with a spread of about ${fmt(f.spread_mm)} mm per axis. Off-board miss rate: ${fmt(f.miss_rate_pct)}%.`;
+    $("sessLegend").innerHTML = d.trend.map((t, i) => `<span class="mono" style="font-size:12px"><i class="c" style="background:${SESS_COL[i % SESS_COL.length]}"></i>S${t.session}</span>`).join("");
+    $("dataChip").textContent = `${esc(name)} · ${f.throws} darts`;
+    renderBoards(d); renderTrend(d); renderRoster();
+  } catch (e) { showError("Could not load player: " + esc(e.message)); }
+}
+
+document.querySelectorAll("#trendT button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#trendT button").forEach(x => x.classList.toggle("on", x === b));
+  trendMode = b.dataset.t; if (DATA) renderTrend(DATA);
+});
+document.querySelectorAll("#zoomT button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#zoomT button").forEach(x => x.classList.toggle("on", x === b));
+  zoom = b.dataset.z === "1"; if (DATA) renderBoards(DATA);
+});
+
+initShell("players").then(async () => {
+  ROSTER = (await api("/api/players")).players;
+  const saved = store.get("player", ROSTER[0].player);
+  const start = ROSTER.find(p => p.player === saved) ? saved : ROSTER[0].player;
+  $("playerSel").innerHTML = ROSTER.map(p => `<option ${p.player === start ? "selected" : ""}>${esc(p.player)}</option>`).join("");
+  $("playerSel").onchange = e => load(e.target.value);
+  load(start);
+}).catch(e => showError("Could not load players: " + esc(e.message)));
+</script>
+</body>
+</html>
