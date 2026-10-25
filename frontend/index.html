@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Predict · AI DartVision</title>
+<title>Overview · AI DartVision</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
@@ -13,184 +13,178 @@
 <main class="main">
   <header class="topbar">
     <span class="chip sky" id="apiChip"><span class="dot"></span>Connecting</span>
-    <span class="chip plain">Board-centred coordinates · WDF / BDO dimensions</span>
+    <span class="chip gold">Simulated players labelled</span>
+    <span class="chip plain" id="realChip">DeepDarts · IEEE DataPort</span>
   </header>
   <div class="err" id="err"></div>
 
   <section class="page-head">
     <div>
-      <div class="eyebrow"><span class="chip red"><span class="dot red"></span>01 / Predict</span><span class="sub">Coordinate inference</span></div>
-      <h1>Predict the <em>throw.</em></h1>
-      <p class="lede">Enter a landing coordinate or click the board. The selected classifier predicts the scoring region, and the deterministic geometry scorer checks it.</p>
-    </div>
-    <div class="card sky" style="padding:14px 18px">
-      <div class="label">Active classifier</div>
-      <div style="font-weight:600;margin-top:4px" id="activeModel">–</div>
+      <div class="eyebrow">00 / Overview <span class="sub">· Pipeline and system status</span></div>
+      <h1>From coordinates to <em>coaching.</em></h1>
+      <p class="lede">A machine-learning pipeline that turns dart, arrow and pellet landing coordinates into scoring regions, player trends and grounded coaching feedback, with every model checked against the official geometry.</p>
     </div>
   </section>
 
-  <div class="grid g-predict">
-    <div class="stack">
-      <div class="card">
-        <div class="card-head">
-          <div class="label red">◎ Landing coordinates</div>
-          <span class="chip" id="unitChip">Normalised [−1, 1]</span>
-        </div>
-        <div class="grid g2" style="gap:16px">
-          <div class="field"><label>X coordinate <span id="ux">x_norm</span></label>
-            <div class="input"><input id="x" type="number" step="0.01" value="0.00"><em id="uxe">X</em></div>
-            <div class="hint" id="rangeX">Range −1.2 to +1.2</div></div>
-          <div class="field"><label>Y coordinate <span id="uy">y_norm</span></label>
-            <div class="input"><input id="y" type="number" step="0.01" value="0.61"><em>Y</em></div>
-            <div class="hint" id="rangeY">Range −1.2 to +1.2</div></div>
-        </div>
-        <div class="grid g2" style="gap:16px;margin-top:20px">
-          <button class="btn btn-primary btn-lg" id="predictBtn">◎ Predict region</button>
-          <button class="btn btn-ghost btn-lg" id="randomBtn">⚄ Random</button>
-        </div>
-        <div class="label" style="margin:22px 0 10px">Quick presets (region centres)</div>
-        <div class="presets" id="presets"></div>
-      </div>
+  <div class="grid g4" style="margin-bottom:22px">
+    <div class="tile dark"><div class="label">Best model accuracy <span>⚡</span></div><div class="big" id="kBest">–</div><div class="tile-foot"><span id="kBestS">–</span><span id="kBestW"></span></div></div>
+    <div class="tile"><div class="label">Real darts analysed <span>▦</span></div><div class="big" id="kReal">–</div><div class="tile-foot"><span id="kRealS">DeepDarts · IEEE DataPort</span></div></div>
+    <div class="tile"><div class="label">Sports supported <span>◎</span></div><div class="big" id="kSports">–</div><div class="tile-foot"><span id="kSportsS">–</span></div></div>
+    <div class="tile"><div class="label">AI coach checks passed <span>✓</span></div><div class="big teal-t" id="kCoach">–</div><div class="tile-foot"><span id="kCoachS">–</span></div></div>
+  </div>
 
-      <div class="grid g3" style="gap:14px">
-        <div class="tile dark">
-          <div class="label">Region</div>
-          <div class="big" id="rLabel">–</div>
-          <div class="mono" style="font-size:13px" id="rName"></div>
-          <div class="muted" style="font-size:13px;color:#9AA4B5" id="rMult"></div>
-        </div>
-        <div class="tile">
-          <div class="label">Score</div>
-          <div class="big xl red-t" id="rScore">–</div>
-          <div class="muted" style="font-size:13px" id="rConf"></div>
-        </div>
-        <div class="tile blush">
-          <div class="label">Geometry check</div>
-          <div style="font-size:24px;font-weight:700" id="rGeo">–</div>
-          <span class="chip" id="rAgree" style="align-self:flex-start">–</span>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head" style="margin-bottom:12px">
-          <div class="label">Spatial vector</div>
-          <span class="label teal-t" id="featSet"></span>
-        </div>
-        <div class="inset kv">
-          <div><span class="label">x</span><b id="vx">–</b></div>
-          <div><span class="label">y</span><b id="vy">–</b></div>
-          <div><span class="label">radius r</span><b id="vr">–</b></div>
-          <div><span class="label">θ</span><b id="vt">–</b></div>
-        </div>
-        <div class="row" style="justify-content:space-between;margin-top:12px;font-size:14px">
-          <span class="muted" id="vmm"></span>
-          <span class="red-t mono" id="vconf"></span>
-        </div>
-      </div>
+  <div class="card" style="margin-bottom:22px">
+    <div class="card-head"><div class="label">System pipeline · 6 stages</div><span class="chip sky" id="pipeChip">same split for every model</span></div>
+    <div class="pipeline">
+      <div class="step"><span class="n">01</span><b>Coordinates</b><small>Landing point (x, y) in mm or normalised board units</small></div>
+      <div class="step"><span class="n">02</span><b>Preprocessing</b><small>Validation, unit conversion, rotation and flip correction</small></div>
+      <div class="step"><span class="n">03</span><b>Features</b><small>Polar features r, sin θ, cos θ next to raw (x, y)</small></div>
+      <div class="step"><span class="n">04</span><b>5 classifiers</b><small>Logistic Regression, Decision Tree, Random Forest, KNN, SVM</small></div>
+      <div class="step"><span class="n">05</span><b>Geometry check</b><small>Every prediction compared with the official board rules</small></div>
+      <div class="step hot"><span class="n">06</span><b>Analytics &amp; AI coach</b><small>Trends, grouping, drills; quoted numbers are verified</small></div>
     </div>
+  </div>
 
-    <div class="stack">
-      <div class="card">
-        <div class="card-head">
-          <div class="label">⌖ Target visualisation</div>
-          <span class="chip"><span class="dot"></span>Click to place a dart</span>
-        </div>
-        <div class="board-wrap click"><svg id="board"></svg></div>
-        <div class="legend" style="margin-top:16px">
-          <span><i style="background:#1E2433"></i>Single (black)</span>
-          <span><i style="background:#F3EAD7;border:1px solid #ccc"></i>Single (cream)</span>
-          <span><i style="background:#B83A2B"></i>Double / Treble</span>
-          <span><i style="background:#2E6F73"></i>Double / Treble</span>
-          <span><i class="c" style="background:#2E6F73"></i>25 Outer bull</span>
-          <span><i class="c" style="background:#B83A2B"></i>50 Inner bull</span>
-        </div>
+  <div class="grid g-ov" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head"><div><div class="label">Instant inference</div><h2 style="margin-top:6px">Quick predict</h2></div><span class="chip sky" id="qpModel">–</span></div>
+      <div class="grid g2" style="gap:12px">
+        <div class="field"><label>X <span>normalised</span></label><div class="input"><input id="qx" type="number" step="0.01" value="0.00"></div></div>
+        <div class="field"><label>Y <span>normalised</span></label><div class="input"><input id="qy" type="number" step="0.01" value="0.61"></div></div>
       </div>
-      <div class="grid g3" style="gap:14px">
-        <div class="tile"><div class="label">Feature set</div><div style="font-weight:600" id="tFeat">–</div></div>
-        <div class="tile"><div class="label">Model inference</div><div style="font-weight:600" id="tInfer">–</div></div>
-        <div class="tile"><div class="label">Round trip</div><div style="font-weight:600" id="tRound">–</div></div>
+      <button class="btn btn-primary" id="qpBtn" style="width:100%;margin-top:14px">◎ Predict sector</button>
+      <div class="board-wrap click" style="max-width:300px;margin-top:16px"><svg id="qBoard"></svg></div>
+      <div class="row" style="justify-content:space-between;margin-top:12px">
+        <span id="qRes" class="tag t" style="font-size:15px">–</span>
+        <span class="mono muted" style="font-size:12.5px" id="qInfo"></span>
       </div>
+      <div class="chart-note" id="qNote">Click the board or type a coordinate.</div>
     </div>
+    <div class="card">
+      <div class="card-head">
+        <div><div class="label">Benchmark · held-out test set</div><h2 style="margin-top:6px">Model leaderboard</h2></div>
+        <div class="toggle" id="lbT"><button data-v="accuracy" class="on">Accuracy</button><button data-v="macro_f1">F1</button><button data-v="boundary_accuracy">Wire acc.</button></div>
+      </div>
+      <div class="table-scroll"><table class="tbl head-navy" id="lb"></table></div>
+      <div class="chart-note" id="lbNote"></div>
+    </div>
+  </div>
+
+  <div class="grid g3" style="margin-bottom:22px">
+    <div class="card module">
+      <span class="label">Module 01</span><h2>Player Analysis</h2>
+      <div class="muted" style="font-size:13.5px">Grouping, drift, milestones and head-to-head comparisons across sessions.</div>
+      <div class="preview" id="pvPlayers"></div>
+      <div class="mono muted" style="font-size:12px" id="pvPlayersN"></div>
+      <a class="go" href="players.html">Open player drill-downs →</a>
+    </div>
+    <div class="card module">
+      <span class="label">Module 02</span><h2>Real Data</h2>
+      <div class="muted" style="font-size:13.5px">DeepDarts (IEEE DataPort) real throws, tested on sessions the models never saw.</div>
+      <div class="preview"><div class="board-wrap" style="max-width:150px"><svg id="pvReal"></svg></div></div>
+      <div class="mono muted" style="font-size:12px" id="pvRealN"></div>
+      <a class="go" href="realdata.html">Explore real data →</a>
+    </div>
+    <div class="card module">
+      <span class="label">Module 03</span><h2>Multi-Sport</h2>
+      <div class="muted" style="font-size:13.5px">The same engine on World Archery faces and ISSF 10 m air rifle and pistol targets.</div>
+      <div class="preview"><svg id="pvSports" viewBox="0 0 300 100" style="width:100%;max-width:300px"></svg></div>
+      <div class="mono muted" style="font-size:12px" id="pvSportsN"></div>
+      <a class="go" href="sports.html">Open multi-sport →</a>
+    </div>
+  </div>
+
+  <div class="card sky" style="box-shadow:none;font-family:var(--mono);font-size:12px;line-height:1.6">
+    Simulated players are labelled in gold. Real-data results come from held-out DeepDarts sessions. Every number on this page is read from the pipeline outputs (results/metrics.csv, results/sports_metrics.csv, results/coach_log.jsonl).
   </div>
 </main>
 
 <script src="js/board.js"></script>
 <script src="js/common.js"></script>
+<script src="js/charts.js"></script>
 <script>
-const layer = drawBoard($("board"));
-const PRESETS = ["T20", "IB", "D20", "T19", "D16", "S5", "OB"];
-let busy = false;
+let ROWS = [], lbKey = "accuracy";
+const qLayer = drawBoard($("qBoard"), { numbers: true });
 
-function unitInfo() {
-  const mm = settings.unit === "mm";
-  $("unitChip").textContent = mm ? "Millimetres from centre" : "Normalised [−1, 1]";
-  $("ux").textContent = mm ? "mm" : "x_norm"; $("uy").textContent = mm ? "mm" : "y_norm";
-  $("rangeX").textContent = $("rangeY").textContent = mm ? "Range −200 to +200 mm (board edge 170)" : "Range −1.2 to +1.2 (board edge 1.0)";
-  ["x", "y"].forEach(id => $(id).step = mm ? "1" : "0.01");
-  return mm;
-}
-function setInputs(nx, ny) {
-  const mm = settings.unit === "mm";
-  $("x").value = mm ? (nx * 170).toFixed(1) : nx.toFixed(3);
-  $("y").value = mm ? (ny * 170).toFixed(1) : ny.toFixed(3);
-}
-
-$("presets").innerHTML = PRESETS.map(l => {
-  const c = regionCenter(l);
-  return `<button class="preset" data-l="${l}">${l} (${c.x.toFixed(2)}, ${c.y.toFixed(2)})</button>`;
-}).join("");
-document.querySelectorAll(".preset").forEach(b => b.onclick = () => {
-  document.querySelectorAll(".preset").forEach(x => x.classList.toggle("on", x === b));
-  const c = regionCenter(b.dataset.l); setInputs(c.x, c.y); predict();
-});
-
-async function predict() {
-  if (busy) return; busy = true;
-  const t0 = performance.now();
+async function quick() {
   try {
-    const r = await api("/api/predict", { x: +$("x").value, y: +$("y").value, unit: settings.unit, model: settings.model });
-    const rt = performance.now() - t0;
-    addMarker(layer, r.x, r.y, `(${r.x.toFixed(2)}, ${r.y.toFixed(2)}) → ${r.label}`);
-    $("rLabel").textContent = r.label;
-    $("rName").textContent = r.label_name;
-    $("rMult").textContent = r.label === "MISS" ? "Off the board" : (["IB", "OB"].includes(r.label) ? "Bullseye" : `Multiplier ${r.multiplier}× · Base ${r.base}`);
-    $("rScore").textContent = r.score;
-    $("rConf").textContent = r.confidence === null ? "Model gives no probability" : `Confidence ${pct(r.confidence)}`;
-    $("rGeo").textContent = `${r.geometry_label} = ${r.geometry_score} pts`;
-    const a = $("rAgree");
-    a.className = r.agrees ? "chip" : "chip red";
-    a.textContent = r.agrees ? "✓ Matches rule" : "✗ Disagrees (near wire?)";
-    $("vx").textContent = r.x.toFixed(3); $("vy").textContent = r.y.toFixed(3);
-    $("vr").textContent = r.r.toFixed(3); $("vt").textContent = r.theta_deg.toFixed(1) + "°";
-    $("vmm").textContent = `${r.x_mm.toFixed(1)} mm, ${r.y_mm.toFixed(1)} mm · r = ${r.r_mm.toFixed(1)} mm`;
-    $("vconf").textContent = r.confidence === null ? "" : `Class probability ${pct(r.confidence, 2)}`;
-    $("featSet").textContent = r.feature_set === "engineered" ? "x, y, r, sin θ, cos θ" : "x, y";
-    $("tFeat").textContent = r.feature_set === "engineered" ? "Engineered (5)" : "Raw (2)";
-    $("tInfer").textContent = `${r.inference_ms.toFixed(2)} ms`;
-    $("tRound").textContent = `${rt.toFixed(0)} ms`;
-    $("activeModel").textContent = modelName(r.model);
-  } catch (e) { showError("Prediction failed: " + esc(e.message)); }
-  busy = false;
+    const r = await api("/api/predict", { x: +$("qx").value, y: +$("qy").value, unit: "norm", model: settings.model });
+    addMarker(qLayer, r.x, r.y, r.label);
+    $("qRes").textContent = `${r.label} · ${r.score} pts`;
+    $("qInfo").textContent = (r.confidence === null ? "" : `conf ${pct(r.confidence, 1)} · `) + (r.agrees ? "geometry agrees" : "geometry differs");
+    $("qNote").textContent = `r = ${r.r_mm.toFixed(1)} mm, θ = ${r.theta_deg.toFixed(1)}° · nearest wire ${r.wire_mm.toFixed(1)} mm away · ${modelName(r.model)}`;
+    $("qpModel").textContent = modelName(r.model);
+  } catch (e) { $("qNote").textContent = "Prediction failed: " + e.message; }
+}
+$("qpBtn").onclick = quick;
+["qx", "qy"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") quick(); }));
+$("qBoard").addEventListener("click", e => { const p = boardPointFromEvent($("qBoard"), e); $("qx").value = p.x.toFixed(3); $("qy").value = p.y.toFixed(3); quick(); });
+
+function renderLeaderboard() {
+  const ml = ROWS.filter(r => r.eval_set === "test" && r.model !== "Geometry baseline");
+  if (!ml.length) return noData($("lb"), "No metrics yet. Run python run_pipeline.py");
+  const rows = [...ml].sort((a, b) => (b[lbKey] ?? -1) - (a[lbKey] ?? -1)).slice(0, 6);
+  const max = Math.max(...rows.map(r => r[lbKey] ?? 0));
+  $("lb").innerHTML = `<thead><tr><th>Model</th><th>Features</th><th class="num">Test acc.</th><th class="num">Wire acc.</th><th style="width:30%">Gauge</th></tr></thead><tbody>` +
+    rows.map((r, i) => `<tr class="${i === 0 ? "hl" : ""}"><td><b>${esc(r.model)}</b></td><td class="mono" style="font-size:12px">${r.feature_set === "engineered" ? "r, sin θ, cos θ" : "x, y"}</td>
+      <td class="num">${pct(r.accuracy, 2)}</td><td class="num">${pct(r.boundary_accuracy, 1)}</td>
+      <td><div class="bar ${i === 0 ? "teal" : ""}"><i style="width:${(r[lbKey] ?? 0) / max * 100}%"></i></div></td></tr>`).join("") + "</tbody>";
+  const n = ml[0];
+  $("lbNote").textContent = `Top 6 of ${ml.length} model runs, sorted by ${({ accuracy: "accuracy", macro_f1: "macro F1", boundary_accuracy: "accuracy on throws within ~1.7 mm of a wire" })[lbKey]}. ${n.n_boundary} wire throws in the test set.`;
+}
+document.querySelectorAll("#lbT button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#lbT button").forEach(x => x.classList.toggle("on", x === b)); lbKey = b.dataset.v; renderLeaderboard();
+});
+
+function drawSportIcons() {
+  const s = $("pvSports"), rings = (cx, cols) => cols.map((c, i) => `<circle cx="${cx}" cy="45" r="${36 - i * 36 / cols.length}" fill="${c}" stroke="#1B2536" stroke-width=".6"/>`).join("");
+  s.innerHTML = rings(50, ["#1E2433", "#B83A2B", "#F3EAD7", "#2E6F73", "#B83A2B"]) +
+    rings(150, ["#F7F3EA", "#1E2433", "#3D8FD1", "#D9443A", "#F2C14E"]) +
+    rings(250, ["#F7F3EA", "#F7F3EA", "#1E2433", "#1E2433", "#F7F3EA"]) +
+    ["Darts", "Archery", "10 m rifle"].map((t, i) => `<text x="${50 + i * 100}" y="96" text-anchor="middle" font-size="10" font-family="IBM Plex Mono" fill="#6B6F78">${t}</text>`).join("");
 }
 
-$("predictBtn").onclick = predict;
-["x", "y"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") predict(); }));
-$("randomBtn").onclick = () => {
-  const r = 1.12 * Math.sqrt(Math.random()), t = Math.random() * 2 * Math.PI;
-  setInputs(r * Math.cos(t), r * Math.sin(t)); predict();
-};
-$("board").addEventListener("click", e => { const p = boardPointFromEvent($("board"), e); setInputs(p.x, p.y); predict(); });
-
-let lastUnit = settings.unit;
-onSettings(s => {
-  if (s.unit !== lastUnit) {            // convert the typed values to the new unit
-    const f = s.unit === "mm" ? 170 : 1 / 170, d = s.unit === "mm" ? 1 : 3;
-    ["x", "y"].forEach(id => $(id).value = (+$(id).value * f).toFixed(d));
-    lastUnit = s.unit; unitInfo();
-  }
-  predict();
+initShell("overview").catch(() => {}).finally(async () => {
+  quick(); drawSportIcons();
+  try {
+    ROWS = (await api("/api/metrics")).rows;
+    const ml = ROWS.filter(r => r.eval_set === "test" && r.model !== "Geometry baseline").sort((a, b) => b.accuracy - a.accuracy);
+    if (ml.length) {
+      const b = ml[0];
+      $("kBest").textContent = pct(b.accuracy, 1);
+      $("kBestS").textContent = `${b.model} · ${b.feature_set}`;
+      $("kBestW").textContent = `wire ${pct(b.boundary_accuracy, 1)}`;
+    }
+    renderLeaderboard();
+  } catch (e) { noData($("lb"), "Metrics unavailable: " + e.message); }
+  try {
+    const rd = await api("/api/real");
+    $("kReal").textContent = rd.darts.toLocaleString();
+    $("kRealS").textContent = `${rd.sessions} sessions · ${rd.visits.toLocaleString()} visits`;
+    $("pvRealN").textContent = `N = ${rd.darts.toLocaleString()} darts · ${rd.sessions} sessions`;
+    const L = drawBoard($("pvReal"), { style: "schematic", numbers: false });
+    addDensity($("pvReal"), L, rd.sample);
+  } catch { $("kReal").textContent = "–"; $("kRealS").textContent = "Real data not loaded"; $("pvRealN").textContent = "Run prepare_real_data.py to add real throws"; }
+  try {
+    const sp = await api("/api/sports");
+    const kinds = new Set(["darts", ...sp.targets.map(t => t.sport)]);
+    $("kSports").innerHTML = `${kinds.size}<small>disciplines</small>`;
+    $("kSportsS").textContent = [...kinds].join(" · ");
+    $("pvSportsN").textContent = `${sp.targets.length} extra targets · ${sp.models.length} trained models each`;
+  } catch { $("kSports").innerHTML = `1<small>discipline</small>`; $("kSportsS").textContent = "darts"; }
+  try {
+    const st = (await api("/api/coach/status")).stats;
+    if (st.generations) {
+      $("kCoach").textContent = pct(st.verified / st.generations, 0);
+      $("kCoachS").textContent = `${st.verified}/${st.generations} AI answers verified`;
+    } else { $("kCoach").textContent = "–"; $("kCoachS").textContent = "No AI generations logged yet"; }
+  } catch { $("kCoachS").textContent = "Coach status unavailable"; }
+  try {
+    const pl = (await api("/api/players")).players;
+    barChart($("pvPlayers"), pl.map(p => ({ label: p.player.split(" (")[0].replace("Player ", ""), value: p.three_dart_avg, color: "#B83A2B" })), { height: 150, fmt: v => v.toFixed(0) });
+    $("pvPlayersN").textContent = `${pl.length} simulated players · 3-dart average`;
+  } catch { noData($("pvPlayers"), "Players unavailable"); }
 });
-initShell("predict").then(() => { unitInfo(); predict(); }).catch(() => {});
 </script>
 </body>
 </html>

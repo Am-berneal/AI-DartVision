@@ -19,8 +19,8 @@
 
   <section class="page-head">
     <div>
-      <div class="eyebrow"><span class="chip red">05 / Batch</span><span class="sub">CSV session scoring</span></div>
-      <h1>Score a whole <em>session.</em></h1>
+      <div class="eyebrow">05 / Batch <span class="sub">· Scoring pipeline</span></div>
+      <h1>High-throughput <em>coordinate ingestion</em> &amp; discrepancy inspection.</h1>
       <p class="lede">Upload a session of landing coordinates to classify every dart with the selected model and check each one against the geometry rules.</p>
     </div>
     <button class="btn btn-primary" id="dlTop" disabled>⇩ Download scored CSV</button>
@@ -59,7 +59,8 @@
           <div><h2>Batch classification results</h2><div class="muted" style="font-size:13px;margin-top:4px">Model predictions vs geometry rules</div></div>
           <div class="toggle" id="viewT"><button data-v="all" class="on">All</button><button data-v="bad">Discrepancies</button></div>
         </div>
-        <div class="input" style="margin-bottom:14px"><input id="filter" placeholder="Filter by region or player, e.g. T20" style="font-size:15px;font-family:var(--sans)"></div>
+        <div class="input" style="margin-bottom:10px"><input id="filter" placeholder="Filter by region or player, e.g. T20" style="font-size:15px;font-family:var(--sans)"></div>
+        <div class="fchips" id="zoneF" style="margin-bottom:12px"></div>
         <div class="table-scroll"><table class="tbl head-navy" id="tbl"></table></div>
         <div class="row no-print" style="justify-content:space-between;margin-top:16px">
           <span class="muted" style="font-size:13px" id="showing"></span>
@@ -105,7 +106,9 @@
 <script src="js/common.js"></script>
 <script src="js/charts.js"></script>
 <script>
-let INPUT = null, RESULT = null, fileName = "", view = "all";
+let INPUT = null, RESULT = null, fileName = "", view = "all", zone = "all";
+const ZONE_OF = l => l === "MISS" ? "miss" : (["IB", "OB"].includes(l) ? "bull" : ({ T: "treble", D: "double" }[l[0]] || "single"));
+const ZF = [["all", "All"], ["treble", "Trebles"], ["double", "Doubles"], ["single", "Singles"], ["bull", "Bulls"], ["miss", "Misses"]];
 
 function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
@@ -162,16 +165,20 @@ function render() {
 
 function renderTable() {
   const q = $("filter").value.trim().toLowerCase();
-  let rows = RESULT.rows.filter(r => view === "all" || !r.agrees);
+  const counts = Object.fromEntries(ZF.map(([k]) => [k, k === "all" ? RESULT.rows.length : RESULT.rows.filter(r => ZONE_OF(r.predicted) === k).length]));
+  $("zoneF").innerHTML = ZF.map(([k, n]) => `<button class="fchip red ${k === zone ? "on" : ""}" data-z="${k}">${n} (${counts[k]})</button>`).join("");
+  document.querySelectorAll("#zoneF .fchip").forEach(b => b.onclick = () => { zone = b.dataset.z; renderTable(); });
+  let rows = RESULT.rows.filter(r => (view === "all" || !r.agrees) && (zone === "all" || ZONE_OF(r.predicted) === zone));
   if (q) rows = rows.filter(r => [r.predicted, r.geometry, r.player].some(v => String(v).toLowerCase().includes(q)));
   const u = settings.unit === "mm" ? 1 : 3;
-  $("tbl").innerHTML = `<thead><tr><th>#</th><th>Player</th><th>Coords (x, y)</th><th>Predicted</th><th class="num">Score</th><th>Geometry</th><th>Agrees</th></tr></thead><tbody>` +
+  $("tbl").innerHTML = `<thead><tr><th>#</th><th>Player</th><th>Coords (x, y)</th><th>Polar (r mm, θ)</th><th>Predicted</th><th class="num">Score</th><th>Geometry</th><th>Agrees</th></tr></thead><tbody>` +
     (rows.length ? rows.map(r => `<tr><td class="mono">${r.n}</td><td>${esc(r.player || "–")}</td>
       <td class="mono" style="font-size:13px">${r.x.toFixed(u)}, ${r.y.toFixed(u)}</td>
+      <td class="mono" style="font-size:12.5px">${(Math.hypot(r.x_norm, r.y_norm) * 170).toFixed(1)}, ${(((Math.atan2(r.y_norm, r.x_norm) * 180 / Math.PI) + 360) % 360).toFixed(1)}°</td>
       <td>${labelTag(r.predicted)}<div class="muted" style="font-size:11px">${esc(r.predicted_name)}</div></td>
       <td class="num">${r.score}</td><td class="mono">${esc(r.geometry)}</td>
       <td><span class="tag ${r.agrees ? "ok" : "bad"}">${r.agrees ? "● Agree" : "✗ Differs"}</span></td></tr>`).join("")
-      : `<tr><td colspan="7" class="empty">No rows match.</td></tr>`) + "</tbody>";
+      : `<tr><td colspan="8" class="empty">No rows match.</td></tr>`) + "</tbody>";
   $("showing").textContent = `Showing ${rows.length} of ${RESULT.rows.length} throws`;
 }
 

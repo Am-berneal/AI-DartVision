@@ -13,117 +13,117 @@
 <main class="main">
   <header class="topbar">
     <span class="chip sky" id="apiChip"><span class="dot"></span>Connecting</span>
-    <span class="chip plain">Feedback generated only from computed statistics</span>
+    <span class="chip gold">Simulated data</span>
+    <span class="chip plain">Grounding: strict</span>
   </header>
   <div class="err" id="err"></div>
 
   <section class="page-head">
     <div>
       <div class="eyebrow">03 / AI Coach <span class="sub">· Grounded feedback</span></div>
-      <h1>Feedback grounded in <em>your numbers.</em></h1>
-      <p class="lede">The coach turns your measured grouping, drift and scoring trend into plain-language advice. Every figure it quotes is checked against the stats table.</p>
+      <h1>Coaching grounded in <em>your numbers.</em></h1>
+      <p class="lede">The coach turns measured grouping, drift and scoring trend into plain-language advice. It may only quote figures from the verified facts list; any other number is rejected and the answer is regenerated or replaced by the rule-based coach.</p>
     </div>
-    <span class="chip" id="dartsChip"></span>
+    <div class="row no-print">
+      <button class="btn btn-ghost" id="speakBtn" title="Read the feedback aloud">🔊 Listen</button>
+      <button class="btn btn-outline" onclick="window.print()">⇩ Export PDF note</button>
+    </div>
   </section>
 
-  <div class="grid g-coach">
-    <div class="card dark stack" style="gap:18px">
-      <div>
-        <div class="label">Grounding data · all sessions</div>
-        <h2 style="margin-top:6px;color:#fff">Player statistics</h2>
+  <div class="grid g-coach" style="margin-bottom:22px">
+    <div class="stack" style="gap:18px">
+      <div class="card">
+        <div class="card-head"><div class="label">Target athlete</div><span class="chip sky" id="dartsChip">–</span></div>
+        <select class="plain" id="playerSel" style="width:100%"></select>
+        <div class="grid g3" style="gap:8px;margin-top:12px">
+          <div class="inset" style="text-align:center;padding:10px"><div class="label">3-dart</div><b class="mono" id="m3da">–</b></div>
+          <div class="inset" style="text-align:center;padding:10px"><div class="label" id="mHitL">Hit</div><b class="mono" id="mHit">–</b></div>
+          <div class="inset" style="text-align:center;padding:10px"><div class="label">Best</div><b class="mono" id="mBest">–</b></div>
+        </div>
+        <div class="label" style="margin:16px 0 6px">Language</div>
+        <select class="plain" id="langSel" style="width:100%"><option>English</option><option>Hindi</option><option>Punjabi</option></select>
+        <div class="label" style="margin:14px 0 6px">Coaching tone</div>
+        <div class="pills" id="toneP"><button data-v="friendly">Friendly</button><button data-v="technical">Technical</button><button data-v="short">Short &amp; direct</button></div>
+        <button class="btn btn-primary btn-lg" id="genBtn" style="width:100%;margin-top:16px">⚡ Generate grounded feedback</button>
+        <div class="chip sky" id="aiChip" style="margin-top:12px;white-space:normal">Checking GenAI…</div>
       </div>
-      <select class="side-select" id="playerSel"></select>
 
-      <div class="inset">
+      <div class="card">
+        <div class="card-head"><div class="label">Verified facts audit</div><span class="chip" id="factChip">–</span></div>
+        <div class="muted" style="font-size:13px;margin-bottom:10px">The coach may only cite these numbers, computed from the recorded throws.</div>
+        <div class="facts" id="facts"></div>
+        <div class="card sky" style="box-shadow:none;margin-top:12px;padding:10px 12px;font-size:12.5px">🔒 Hallucination guard: answers quoting a number not in this list are rejected.</div>
+      </div>
+
+      <div class="card dark">
         <div class="row" style="justify-content:space-between"><span class="label">Offset from target (mm)</span><span class="label" id="aimLbl"></span></div>
-        <svg id="vec" viewBox="-36 -36 72 72" style="width:100%;max-width:320px;display:block;margin:8px auto 0"></svg>
-        <div class="row" style="justify-content:space-between;font-family:var(--mono);font-size:11.5px;color:#9AA4B5">
-          <span><span class="dot gold"></span> group centre</span><span>dashed = 1σ spread</span><span>rings 10 / 20 / 30 mm</span>
-        </div>
+        <svg id="vec" viewBox="-36 -36 72 72" style="width:100%;max-width:300px;display:block;margin:8px auto 0"></svg>
+        <div class="row" style="justify-content:space-between;font-family:var(--mono);font-size:11px;color:#9AA4B5"><span><span class="dot gold"></span> group centre</span><span>dashed = 1σ</span><span>rings 10/20/30 mm</span></div>
       </div>
-
-      <div class="inset">
-        <div class="row" style="justify-content:space-between"><span class="label">Systematic bias</span><span class="chip red" id="biasTag"></span></div>
-        <div class="big" style="margin:8px 0" id="biasMm">–</div>
-        <div class="mono" style="font-size:12.5px;color:#C9D0DB" id="biasVec"></div>
-        <div class="bar" style="margin-top:12px"><i id="biasBar"></i></div>
-      </div>
-      <div class="inset">
-        <div class="row" style="justify-content:space-between"><span class="label">Spread per axis</span><span class="chip">1σ</span></div>
-        <div class="big" style="margin:8px 0" id="spread">–</div>
-        <div class="mono" style="font-size:12.5px;color:#8FD3D6" id="spreadNote"></div>
-      </div>
-      <div class="inset">
-        <div class="row" style="justify-content:space-between"><span class="label">3-dart average progression</span><span class="chip gold" id="gain"></span></div>
-        <div class="big" style="margin:8px 0" id="prog">–</div>
-        <div class="bar gold"><i id="progBar"></i></div>
-      </div>
-      <div class="grid g3" style="gap:10px">
-        <div class="inset" style="text-align:center"><div class="label">Hit rate</div><b class="mono" style="font-size:20px" id="mHit">–</b></div>
-        <div class="inset" style="text-align:center"><div class="label">Top miss</div><b class="mono" style="font-size:20px" id="mOff">–</b></div>
-        <div class="inset" style="text-align:center"><div class="label">Best sess.</div><b class="mono" style="font-size:20px" id="mBest">–</b></div>
-      </div>
-      <div class="label" style="line-height:1.6">⛨ Coach output may only quote figures from this panel. Numbers that cannot be verified are rejected.</div>
     </div>
 
-    <div class="card">
-      <div class="row" style="justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:18px">
-        <div class="row" style="gap:14px">
-          <img src="logo-icon.png" alt="" style="width:48px;height:48px;border-radius:12px;box-shadow:0 0 0 2px #E6DED0">
-          <div><h2>DartVision Coach</h2><div class="label teal-t" id="mode">● Rule-based</div></div>
+    <div class="stack" style="gap:18px">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:6px">
+          <div class="row" style="gap:12px">
+            <img src="logo-icon.png" alt="" style="width:44px;height:44px;border-radius:12px;box-shadow:0 0 0 2px #E6DED0">
+            <div><div class="label">Coaching dispatch</div><h2 id="dispatchTitle">DartVision Coach</h2></div>
+          </div>
+          <div class="row"><span class="chip" id="verChip">–</span><span class="chip sky" id="mode">–</span></div>
         </div>
-        <div class="row no-print">
-          <button class="btn btn-ghost" id="speakBtn" title="Read the feedback aloud">🔊 Listen</button>
-          <button class="btn btn-ghost" onclick="window.print()">⇩ Export</button>
-          <button class="btn btn-primary" id="genBtn">↻ Generate feedback</button>
-        </div>
-      </div>
-      <div class="row no-print" style="justify-content:space-between;margin:-6px 0 16px">
-        <div class="row">
-          <span class="label">Language</span><select class="plain" id="langSel"><option>English</option><option>Hindi</option><option>Punjabi</option></select>
-          <span class="label">Tone</span><select class="plain" id="toneSel"><option value="friendly">Friendly coach</option><option value="technical">Technical analyst</option><option value="short">Short &amp; direct</option></select>
-        </div>
-        <span class="chip sky" id="aiChip">Checking GenAI…</span>
+        <div id="fb"><div class="empty">Choose a player and press <b>Generate grounded feedback</b>.</div></div>
       </div>
 
-      <div class="card sky" style="box-shadow:none" id="fb">
-        <div class="empty">Choose a player and press <b>Generate feedback</b>.</div>
+      <div class="card">
+        <div class="card-head"><div><div class="label">Ask the coach</div><h2 style="margin-top:6px">Interactive diagnostic thread</h2></div><span class="chip sky">answers from your data</span></div>
+        <div class="fchips" id="suggest"></div>
+        <div class="chat" id="chat"></div>
+        <form class="ask" id="askForm">
+          <input id="q" placeholder="Ask a follow-up question grounded in your throws…" autocomplete="off">
+          <button class="btn btn-primary" style="padding:10px 14px" aria-label="Send">↑</button>
+        </form>
       </div>
-
-      <div class="label" style="margin:22px 0 10px">Suggested questions</div>
-      <div class="stack" style="gap:8px;align-items:flex-start" id="suggest"></div>
-      <div class="chat" id="chat"></div>
-      <form class="ask" id="askForm">
-        <input id="q" placeholder="Ask about your throws… e.g. Which session was my best?" autocomplete="off">
-        <button class="btn btn-primary" style="padding:10px 14px">→</button>
-      </form>
     </div>
+  </div>
+
+  <div class="grid g3">
+    <div class="tile"><div class="label">Fact verification rate <span>✓</span></div><div class="big teal-t" id="sVer">–</div><div class="tile-foot"><span id="sVerS">–</span></div></div>
+    <div class="tile"><div class="label">Fallback / rejected rate <span>⛨</span></div><div class="big" id="sRej">–</div><div class="tile-foot"><span id="sRejS">–</span></div></div>
+    <div class="tile"><div class="label">Average generation time <span>⏱</span></div><div class="big" id="sLat">–</div><div class="tile-foot"><span id="sLatS">–</span></div></div>
   </div>
 </main>
 
 <script src="js/board.js"></script>
 <script src="js/common.js"></script>
 <script>
-let CUR = null, LAST = null;
-const QUESTIONS = ["Which session was my best?", "How does my spread compare to Player A?", "Where do my misses land?", "Why is my score improving and what should I focus on?"];
+let CUR = null, LAST = null, TONE = store.get("tone", "friendly");
+const QUESTIONS = ["Which session was my best?", "Where do my misses land?", "How does my spread compare to Player A?", "What should I focus on next?"];
 
 async function loadStatus() {
   try {
     const s = await api("/api/coach/status"), st = s.stats;
-    const ground = st.generations ? ` · grounding ${st.verified}/${st.generations} verified` : "";
     $("aiChip").className = s.provider ? "chip" : "chip gold";
-    $("aiChip").innerHTML = s.provider ? `<span class="dot"></span>GenAI: ${esc(s.provider)} · ${esc(s.model)}${ground}` : "Rule-based · add GEMINI_API_KEY for GenAI";
+    $("aiChip").innerHTML = s.provider ? `<span class="dot"></span>GenAI: ${esc(s.provider)} · ${esc(s.model)} · rule-based fallback ready` : "Rule-based coach · add GEMINI_API_KEY to enable GenAI";
     $("aiChip").title = s.reason || "";
+    if (st.generations) {
+      $("sVer").textContent = pct(st.verified / st.generations, 1);
+      $("sVerS").textContent = `${st.verified}/${st.generations} AI answers verified · ${st.after_retry} after one retry`;
+      $("sRej").textContent = pct(st.rejected / st.generations, 1);
+      $("sRejS").textContent = `${st.rejected} replaced by the rule-based coach · ${st.errors} API errors`;
+      $("sLat").innerHTML = st.mean_latency_ms ? `${st.mean_latency_ms}<small>ms</small>` : "–";
+      $("sLatS").textContent = "mean over logged AI feedback";
+    } else {
+      ["sVer", "sRej", "sLat"].forEach(id => $(id).textContent = "–");
+      $("sVerS").textContent = "No AI generations logged yet"; $("sRejS").textContent = "Rule-based mode needs no checks"; $("sLatS").textContent = "Logged in results/coach_log.jsonl";
+    }
   } catch { $("aiChip").textContent = "Status unavailable"; }
 }
 
 function speak() {
   if (!LAST || !("speechSynthesis" in window)) return;
   speechSynthesis.cancel();
-  const text = [LAST.verdict, LAST.weakness, "Drill. " + LAST.drill, LAST.motivation].join(" ");
-  const u = new SpeechSynthesisUtterance(text);
+  const u = new SpeechSynthesisUtterance([LAST.verdict, LAST.weakness, "Drill. " + LAST.drill, LAST.motivation].join(" "));
   u.lang = { Hindi: "hi-IN", Punjabi: "pa-IN" }[LAST.language] || "en-IN";
-  u.rate = 1;
   speechSynthesis.speak(u);
 }
 
@@ -132,54 +132,51 @@ function drawVector(d) {
   [10, 20, 30].forEach(r => svgEl("circle", { r, fill: "none", stroke: "#4A5873", "stroke-width": .4, "stroke-dasharray": "1.5 1.5" }, svg));
   svgEl("line", { x1: -34, y1: 0, x2: 34, y2: 0, stroke: "#36435C", "stroke-width": .3 }, svg);
   svgEl("line", { x1: 0, y1: -34, x2: 0, y2: 34, stroke: "#36435C", "stroke-width": .3 }, svg);
-  svgEl("rect", { x: -8, y: -4, width: 16, height: 8, rx: 1, fill: "#B83A2B", opacity: .35 }, svg);   // treble bed is 8 mm deep
-  const pts = d.throws.map(t => ({ x: (t.x - d.aim.x) * 170, y: (t.y - d.aim.y) * 170 }));
-  pts.forEach(p => { if (Math.abs(p.x) < 35 && Math.abs(p.y) < 35) svgEl("circle", { cx: p.x, cy: -p.y, r: .8, fill: "#8FD3D6", opacity: .55 }, svg); });
+  svgEl("rect", { x: -8, y: -4, width: 16, height: 8, rx: 1, fill: "#B83A2B", opacity: .35 }, svg);
+  d.throws.forEach(t => { const x = (t.x - d.aim.x) * 170, y = (t.y - d.aim.y) * 170; if (Math.abs(x) < 35 && Math.abs(y) < 35) svgEl("circle", { cx: x, cy: -y, r: .8, fill: "#8FD3D6", opacity: .55 }, svg); });
   const f = d.facts;
   svgEl("circle", { cx: f.bias_x_mm, cy: -f.bias_y_mm, r: f.spread_mm, fill: "#2E6F73", opacity: .18, stroke: "#8FD3D6", "stroke-width": .4, "stroke-dasharray": "1.2 1" }, svg);
   svgEl("line", { x1: 0, y1: 0, x2: f.bias_x_mm, y2: -f.bias_y_mm, stroke: "#E0533F", "stroke-width": .9 }, svg);
   svgEl("circle", { cx: f.bias_x_mm, cy: -f.bias_y_mm, r: 1.4, fill: "#F2C14E", stroke: "#1B2536", "stroke-width": .3 }, svg);
-  const t = svgEl("text", { x: 0, y: -5.5, "text-anchor": "middle", fill: "#F3EAD7", "font-size": 2.6, "font-family": "IBM Plex Mono" }, svg);
-  t.textContent = f.aim + " centre";
 }
 
 function renderFacts(d) {
-  const f = d.facts;
-  $("dartsChip").innerHTML = `<span class="dot"></span>${f.throws} darts · ${f.sessions} sessions`;
+  const f = d.facts, sign = v => (v > 0 ? "+" : "") + v;
+  $("dartsChip").textContent = `${f.throws} darts · ${f.sessions} sessions`;
   $("aimLbl").textContent = "Target " + f.aim;
-  $("biasTag").textContent = f.bias;
-  $("biasMm").innerHTML = `${fmt(f.bias_mm)}<small>mm</small>`;
-  $("biasVec").textContent = `(${fmt(f.bias_x_mm)} mm horizontal, ${fmt(f.bias_y_mm)} mm vertical)`;
-  $("biasBar").style.width = Math.min(100, f.bias_mm / 10 * 100) + "%";
-  $("spread").innerHTML = `${fmt(f.spread_mm)}<small>mm</small>`;
-  $("spreadNote").textContent = f.spread_mm <= f.triple_width_mm ? "✓ Grouping fits inside the 8 mm treble bed" : `Wider than the ${f.triple_width_mm} mm treble bed`;
-  const delta = f.last_session_3da - f.first_session_3da;
-  $("gain").textContent = (delta >= 0 ? "+" : "") + delta.toFixed(1) + " pts";
-  $("prog").innerHTML = `${fmt(f.first_session_3da)} <span style="color:#F2C14E">→</span> <span style="color:#8FD3D6">${fmt(f.last_session_3da)}</span>`;
-  $("progBar").style.width = Math.min(100, f.last_session_3da / 180 * 100) + "%";
-  $("mHit").textContent = fmt(f.hit_rate_pct, 0) + "%";
-  $("mOff").textContent = f.top_off_target || "–";
-  $("mBest").textContent = "S" + f.best_session;
+  $("m3da").textContent = fmt(f.three_dart_avg); $("mHitL").textContent = f.aim + " hit"; $("mHit").textContent = fmt(f.hit_rate_pct, 0) + "%"; $("mBest").textContent = "S" + f.best_session;
+  const list = [
+    [`${f.aim} hit rate`, `${fmt(f.hit_rate_pct, 1)}%`, `${f.hits} of ${f.throws} darts`],
+    ["Systematic bias", `${fmt(f.bias_mm)} mm`, `${f.bias} · (${sign(f.bias_x_mm)} mm, ${sign(f.bias_y_mm)} mm)`],
+    ["Grouping CEP50", f.grouping_cep50_mm === null ? "–" : `${fmt(f.grouping_cep50_mm)} mm`, "half of all darts within this radius of the group centre"],
+    ["Spread per axis (1σ)", `${fmt(f.spread_mm)} mm`, f.spread_mm <= f.triple_width_mm ? `fits the ${f.triple_width_mm} mm treble bed` : `wider than the ${f.triple_width_mm} mm treble bed`],
+    ["3-dart average", `${fmt(f.first_session_3da)} → ${fmt(f.last_session_3da)}`, `first to last session · best S${f.best_session} (${fmt(f.best_session_3da)})`],
+    ["Change per session", f.ppd_change_per_session === null ? "–" : `${f.ppd_change_per_session > 0 ? "+" : ""}${fmt(f.ppd_change_per_session, 2)} pts/dart`, "linear trend across sessions"],
+    ["Most common miss", f.top_off_target || "–", f.top_off_target ? `${fmt(f.top_off_target_pct)}% of all darts` : ""],
+    ["Off-board miss rate", `${fmt(f.miss_rate_pct)}%`, "darts outside the double ring"],
+  ];
+  $("facts").innerHTML = list.map(([l, v, s]) => `<div class="fact"><span class="ck">✓</span><span>${esc(l)}</span><b>${esc(v)}</b><small>${esc(s)}</small></div>`).join("");
+  $("factChip").textContent = `${list.filter(x => x[1] !== "–").length} facts`;
   drawVector(d);
 }
 
 async function generate() {
   $("fb").innerHTML = '<div class="empty">Analysing…</div>';
   try {
-    const r = await api("/api/coach", { player: CUR, language: $("langSel").value, tone: $("toneSel").value });
+    const r = await api("/api/coach", { player: CUR, language: $("langSel").value, tone: TONE });
     LAST = r;
-    $("mode").textContent = "● " + r.mode + (r.latency_ms && r.provider ? ` · ${(r.latency_ms / 1000).toFixed(1)} s` : "");
+    $("dispatchTitle").textContent = `Feedback for ${r.facts.player}`;
+    $("mode").textContent = r.mode + (r.latency_ms && r.provider ? ` · ${(r.latency_ms / 1000).toFixed(1)} s` : "");
+    $("verChip").className = r.verified ? "chip" : "chip red";
+    $("verChip").textContent = r.verified ? "✓ all figures verified" : "✗ unverified: " + r.unverified.join(", ");
     $("fb").innerHTML = `
-      <div class="label" style="margin-bottom:16px">◎ Analysed ${r.facts.throws} darts from ${esc(r.facts.player)}</div>
-      <div class="coach-sec"><div class="n">1</div><h3>Verdict</h3><p>${esc(r.verdict)}</p></div>
-      <div class="coach-sec"><div class="n r">2</div><h3>Main weakness</h3><p>${esc(r.weakness)}</p></div>
-      <div class="drill">
-        <div class="row" style="justify-content:space-between"><h3 style="margin:0">3 · Drill: ${esc(r.drill_title)}</h3><span class="chip red">Prescribed</span></div>
-        <p style="line-height:1.6;margin:10px 0">${esc(r.drill)}</p>
-        <div class="card" style="padding:12px 14px;box-shadow:none" ><span class="label">Target for next session: </span><b class="red-t">${esc(r.target)}</b></div>
-      </div>
+      <div class="coach-num">01 · Verdict</div><div class="coach-block">${esc(r.verdict)}</div>
+      <div class="coach-num">02 · Main weakness</div><div class="coach-block red">${esc(r.weakness)}</div>
+      <div class="coach-num">03 · Training protocol</div>
+      <div class="drill"><div class="row" style="justify-content:space-between"><h3 style="margin:0">${esc(r.drill_title)}</h3><span class="chip red">Prescribed</span></div>
+        <p style="line-height:1.6;margin:10px 0 0">${esc(r.drill)}</p></div>
+      <div class="milestone" style="margin-top:14px"><div><div class="label">Next session target</div><div style="font-size:17px;margin-top:4px">${esc(r.target)}</div></div><span style="font-size:26px">⚑</span></div>
       ${r.motivation ? `<p style="margin:14px 0 0;font-style:italic;color:#3C4352">“${esc(r.motivation)}”</p>` : ""}
-      <div class="chip ${r.verified ? "" : "red"}" style="margin-top:16px;white-space:normal">${r.verified ? "✓ All figures verified against the stats table" : "✗ Unverified figures: " + esc(r.unverified.join(", "))}</div>
       ${r.provider && r.attempts === 2 ? `<div class="hint">The first AI draft quoted a number not in the data, so it was regenerated.</div>` : ""}
       ${r.note ? `<div class="hint">${esc(r.note)}</div>` : ""}`;
     loadStatus();
@@ -202,16 +199,17 @@ async function load(name) {
   catch (e) { showError("Could not load player: " + esc(e.message)); }
 }
 
-$("suggest").innerHTML = QUESTIONS.map(q => `<button class="suggest">? ${esc(q)}</button>`).join("");
-document.querySelectorAll(".suggest").forEach((b, i) => b.onclick = () => ask(QUESTIONS[i]));
+$("suggest").innerHTML = QUESTIONS.map(q => `<button class="fchip">? ${esc(q)}</button>`).join("");
+document.querySelectorAll("#suggest .fchip").forEach((b, i) => b.onclick = () => ask(QUESTIONS[i]));
 $("askForm").onsubmit = e => { e.preventDefault(); ask($("q").value); $("q").value = ""; };
 $("genBtn").onclick = generate;
 $("speakBtn").onclick = speak;
-$("langSel").onchange = generate;
-$("toneSel").onchange = generate;
-try { $("langSel").value = store.get("lang", "English"); $("toneSel").value = store.get("tone", "friendly"); } catch {}
-$("langSel").addEventListener("change", () => store.set("lang", $("langSel").value));
-$("toneSel").addEventListener("change", () => store.set("tone", $("toneSel").value));
+document.querySelectorAll("#toneP button").forEach(b => {
+  b.classList.toggle("on", b.dataset.v === TONE);
+  b.onclick = () => { TONE = b.dataset.v; store.set("tone", TONE); document.querySelectorAll("#toneP button").forEach(x => x.classList.toggle("on", x === b)); if (CUR) generate(); };
+});
+$("langSel").value = store.get("lang", "English");
+$("langSel").onchange = () => { store.set("lang", $("langSel").value); if (CUR) generate(); };
 loadStatus();
 
 initShell("coach").then(async () => {

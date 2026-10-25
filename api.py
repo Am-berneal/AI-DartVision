@@ -23,7 +23,7 @@ from sklearn.metrics import precision_score
 from sklearn.model_selection import train_test_split
 
 from dartvision import analytics, sports
-from dartvision.board import (LABEL_NAMES, RADII, label_to_score, labels_to_scores,
+from dartvision.board import (LABEL_NAMES, RADII, distance_to_boundary, label_to_score, labels_to_scores,
                               polar, score_region, sector_number)
 from dartvision.coach import (LANGUAGES, TONES, answer_question, coach_feedback, coach_stats,
                               llm_config, player_facts)
@@ -202,8 +202,35 @@ def predict(p: PredictIn):
         "label": label, "label_name": LABEL_NAMES.get(label, label), "score": label_to_score(label),
         "geometry_label": geo, "geometry_score": label_to_score(geo), "agrees": label == geo,
         "confidence": conf, "inference_ms": infer_ms, "sector": int(sector_number([x], [y])[0]),
+        "wire_mm": float(distance_to_boundary(np.array([x]), np.array([y]))[0]) * 170,
         **describe(label),
     })
+
+
+@app.post("/api/predict/all")
+def predict_all(p: PredictIn):
+    """Run every trained model on one coordinate (for the 'compare all models' table)."""
+    nx, ny = to_norm([p.x], [p.y], p.unit)
+    x, y = float(nx[0]), float(ny[0])
+    feats = add_features(pd.DataFrame({"x": [x], "y": [y]}))
+    geo = str(score_region([x], [y])[0])
+    out = []
+    for key in model_keys():
+        m = load_model(key)
+        X = feature_matrix(feats, m["feature_set"])
+        t0 = time.perf_counter()
+        label = str(m["model"].predict(X)[0])
+        ms = (time.perf_counter() - t0) * 1000
+        conf = None
+        if hasattr(m["model"], "predict_proba"):
+            try:
+                conf = float(np.max(m["model"].predict_proba(X)[0]))
+            except Exception:  # noqa: BLE001
+                conf = None
+        out.append({"key": key, "name": m["name"], "feature_set": m["feature_set"], "label": label,
+                    "score": label_to_score(label), "confidence": conf, "agrees": label == geo, "inference_ms": ms})
+    return clean({"x": x, "y": y, "geometry_label": geo, "geometry_score": label_to_score(geo), "models": out,
+                  "consensus": sum(r["agrees"] for r in out), "n": len(out)})
 
 
 @app.post("/api/batch")

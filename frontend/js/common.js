@@ -1,15 +1,18 @@
 /* Shared layout, settings and API helpers for every page. */
 const ICONS = {
-  real: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>',
-  sports: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M17 7l4-4M18 3h3v3"/></svg>',
+  overview: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
   predict: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
   players: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l5-6 4 4 7-8"/><path d="M14 7h5v5"/></svg>',
   coach: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3z"/><path d="M10 22h4"/><circle cx="12" cy="10" r="2"/></svg>',
   scorecard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 15v-3M12 15V9M17 15v-5"/></svg>',
   batch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>',
+  real: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>',
+  sports: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M17 7l4-4M18 3h3v3"/></svg>',
 };
 const PAGES = [
-  ["index.html", "predict", "Predict"],
+  ["index.html", "overview", "Overview"],
+  ["predict.html", "predict", "Predict"],
   ["players.html", "players", "Player Analysis"],
   ["coach.html", "coach", "AI Coach"],
   ["scorecard.html", "scorecard", "Model Scorecard"],
@@ -60,7 +63,7 @@ async function initShell(active) {
   }
   const side = document.querySelector(".sidebar");
   side.innerHTML = `
-        <div class="brand"><img class="logo" src="logo-icon.png" alt="AI DartVision logo"><div>AI Dart<span>Vision</span></div></div>
+    <div class="brand"><img class="logo" src="logo-icon.png" alt="AI DartVision logo"><div>AI Dart<span>Vision</span></div></div>
     <div class="tagline">Coordinates in. Scoring regions out.</div>
     <div><div class="side-label">Modules</div><nav class="nav">
       ${PAGES.map(([href, key, name]) => `<a href="${href}" class="${key === active ? "active" : ""}">${ICONS[key]}${name}</a>`).join("")}
@@ -69,6 +72,7 @@ async function initShell(active) {
     <div><div class="side-label">Coordinate units</div><div class="seg" id="unitSeg">
       <button data-u="norm">Normalised</button><button data-u="mm">Millimetres</button></div></div>
     <div class="side-foot" id="sideFoot"><span class="dot"></span>Connecting…</div>`;
+  buildChrome(active);
   document.querySelectorAll("#unitSeg button").forEach(b => {
     b.classList.toggle("on", b.dataset.u === settings.unit);
     b.onclick = () => {
@@ -92,6 +96,27 @@ async function initShell(active) {
     showError(`Cannot reach the DartVision API or no models are trained. In the project folder run <code>python run_pipeline.py</code> then <code>uvicorn api:app --reload</code>, and open <code>http://127.0.0.1:8000</code>.`);
     throw e;
   }
+}
+/* Breadcrumb in the top bar + phone navigation (top app bar, slide-in menu, bottom tab bar) */
+function buildChrome(active) {
+  const page = PAGES.find(p => p[1] === active);
+  const top = document.querySelector(".topbar");
+  if (top && page && !top.querySelector(".crumb")) {
+    top.insertAdjacentHTML("afterbegin", `<span class="crumb">AI DartVision <b>/</b> ${esc(page[2])}</span><span class="spacer"></span>`);
+  }
+  if (document.querySelector(".mbar")) return;
+  document.body.insertAdjacentHTML("afterbegin", `
+    <div class="mbar"><a class="brand" href="index.html"><img class="logo" src="logo-icon.png" alt=""><div>AI Dart<span>Vision</span></div></a>
+      <button class="mbtn" id="menuBtn" aria-label="Open menu">${ICONS.menu}</button></div>
+    <div class="scrim" id="scrim"></div>`);
+  const tabs = [["index.html", "overview", "Overview"], ["predict.html", "predict", "Predict"], ["players.html", "players", "Players"], ["coach.html", "coach", "Coach"]];
+  const more = !tabs.some(t => t[1] === active);
+  document.body.insertAdjacentHTML("beforeend", `<nav class="tabbar">${tabs.map(([h, k, n]) => `<a href="${h}" class="${k === active ? "on" : ""}">${ICONS[k]}<span>${n}</span></a>`).join("")}
+    <a href="#" id="moreBtn" class="${more ? "on" : ""}">${ICONS.menu}<span>More</span></a></nav>`);
+  const side = document.querySelector(".sidebar"), toggle = open => { side.classList.toggle("open", open); document.body.classList.toggle("menu-open", open); };
+  $("menuBtn").onclick = () => toggle(!side.classList.contains("open"));
+  $("moreBtn").onclick = e => { e.preventDefault(); toggle(true); };
+  $("scrim").onclick = () => toggle(false);
 }
 function modelName(key) { const m = MODELS.find(x => x.key === key); return m ? `${m.name} (${m.feature_set})` : key; }
 
@@ -129,9 +154,8 @@ function downloadText(name, text, type = "text/csv") {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-
 /* =====================================================================
-   ANIMATIONS  (paste at the end of common.js)
+   ANIMATIONS
    ===================================================================== */
 (function () {
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -196,12 +220,10 @@ function downloadText(name, text, type = "text/csv") {
       const big = el.closest(".big");
       if (big && !big._anim) { bigs.add(big); tiles.add(big.closest(".tile")); }
       if (m.type !== "childList") continue;
-      // stagger table rows, confusion-matrix cells and darts
       if (el.matches("table") || el.matches("tbody")) el.querySelectorAll("tbody tr").forEach((tr, i) => tr.style.setProperty("--i", Math.min(i, 20)));
       if (el.matches(".cm")) [...el.children].forEach((c, i) => c.style.setProperty("--i", i));
       if (el.matches(".darts")) [...el.children].forEach((c, i) => c.style.setProperty("--i", Math.min(i, 120)));
       if (el.matches("svg")) el.querySelectorAll(".darts > *").forEach((c, i) => c.style.setProperty("--i", Math.min(i, 120)));
-      // keep the chat scrolled to the newest message
       if (el.matches(".chat") && el.lastElementChild) el.lastElementChild.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
     bigs.forEach(countUp);

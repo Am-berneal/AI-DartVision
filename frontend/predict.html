@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Predict · AI DartVision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<aside class="sidebar"></aside>
+<main class="main">
+  <header class="topbar">
+    <span class="chip sky" id="apiChip"><span class="dot"></span>Connecting</span>
+    <span class="chip plain" id="latChip">Model latency –</span>
+  </header>
+  <div class="err" id="err"></div>
+
+  <section class="page-head">
+    <div>
+      <div class="eyebrow">01 / Predict <span class="sub">· Real-time classifier</span></div>
+      <h1>Classify coordinate to <em>score.</em></h1>
+      <p class="lede">Projects a landing coordinate into polar geometry, predicts the scoring region with the selected model, and checks it against the official board rules.</p>
+    </div>
+    <div class="row no-print">
+      <button class="btn btn-ghost" id="randomBtn">⚄ Random throw</button>
+      <button class="btn btn-outline" id="dlBtn">⇩ Export log (CSV)</button>
+    </div>
+  </section>
+
+  <div class="grid g-pred2" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head">
+        <div class="label red">⌖ Target plane visualisation</div>
+        <div class="toggle" id="zoomT"><button data-z="0" class="on">Full board</button><button data-z="1">Zoom</button></div>
+      </div>
+      <div class="board-wrap click"><svg id="board"></svg></div>
+      <div class="row" style="justify-content:space-between;margin-top:12px;font-family:var(--mono);font-size:12.5px">
+        <span id="readout">–</span><span class="muted">Click the board to place a dart</span>
+      </div>
+      <div class="legend" style="margin-top:12px">
+        <span><i style="background:#B83A2B"></i>Double / treble</span><span><i style="background:#2E6F73"></i>Double / treble</span>
+        <span><i class="c" style="background:#2E6F73"></i>25 outer bull</span><span><i class="c" style="background:#B83A2B"></i>50 inner bull</span>
+      </div>
+    </div>
+
+    <div class="stack" style="gap:18px">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="row" style="gap:8px"><span class="tag t" style="font-size:14px" id="rTag">–</span><span class="chip" id="rAgree">–</span></div>
+            <h2 style="margin-top:10px;font-size:26px" id="rName">–</h2>
+          </div>
+          <div class="inset" style="text-align:center;padding:10px 16px"><div class="label">Pts</div><div class="big red-t" style="font-size:40px" id="rScore">–</div></div>
+        </div>
+        <div class="inset" style="margin-top:14px">
+          <div class="row" style="justify-content:space-between"><span class="label">Model confidence</span><b class="mono red-t" id="rConf">–</b></div>
+          <div class="bar" style="margin-top:8px"><i id="rConfBar" style="width:0"></i></div>
+          <div class="mono muted" style="font-size:11.5px;margin-top:6px" id="rModel">–</div>
+        </div>
+
+        <div class="row" style="justify-content:space-between;margin-top:16px"><span class="label">Coordinates</span><span class="chip" id="unitChip">–</span></div>
+        <div class="grid g2" style="gap:12px;margin-top:8px">
+          <div><div class="label" style="margin-bottom:6px">X</div><div class="pm"><button data-d="-1" data-t="x">−</button><input id="x" type="number" step="0.01" value="0.00"><button data-d="1" data-t="x">+</button></div></div>
+          <div><div class="label" style="margin-bottom:6px">Y</div><div class="pm"><button data-d="-1" data-t="y">−</button><input id="y" type="number" step="0.01" value="0.61"><button data-d="1" data-t="y">+</button></div></div>
+        </div>
+        <div class="presets" id="presets" style="margin-top:12px"></div>
+        <button class="btn btn-primary btn-lg" id="predictBtn" style="width:100%;margin-top:14px">◎ Classify coordinate</button>
+
+        <div class="card sky" style="box-shadow:none;margin-top:16px;padding:14px">
+          <div class="row" style="justify-content:space-between"><span class="label">Polar decomposition</span><span class="label">board units → mm</span></div>
+          <div class="grid g3" style="gap:10px;margin-top:10px">
+            <div class="inset" style="background:#fff"><div class="label">Radius r</div><b class="mono" style="font-size:17px" id="pR">–</b><div class="muted" style="font-size:12px" id="pRs"></div></div>
+            <div class="inset" style="background:#fff"><div class="label">Angle θ</div><b class="mono" style="font-size:17px" id="pT">–</b><div class="muted" style="font-size:12px" id="pTs"></div></div>
+            <div class="inset" style="background:#fff"><div class="label">Nearest wire</div><b class="mono red-t" style="font-size:17px" id="pW">–</b><div class="muted" style="font-size:12px" id="pWs"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head"><div><div class="label">Same coordinate, every model</div><h2 style="margin-top:6px">Compare all models</h2></div><span class="chip" id="consensus">–</span></div>
+      <div class="table-scroll"><table class="tbl" id="allTbl"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><div class="label">Geometric validation</div><h2 style="margin-top:6px">Feature space and boundary gauges</h2></div></div>
+      <div class="row" style="justify-content:space-between"><b>Radial distance (r)</b><span class="tag t" id="gRtag">–</span></div>
+      <div class="gauge" id="gR" style="margin-top:8px"></div>
+      <div class="gauge-scale"><span>0</span><span>15.9</span><span>99</span><span>107</span><span>162</span><span>170 mm</span></div>
+      <div class="row" style="justify-content:space-between;margin-top:22px"><b>Angular sector (θ)</b><span class="tag" id="gTtag">–</span></div>
+      <div class="gauge" id="gT" style="margin-top:8px"></div>
+      <div class="gauge-scale" id="gTs"></div>
+      <div class="takeaway" style="margin-top:18px"><span>✓</span><div id="takeaway">–</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div><div class="label">This session</div><h2 style="margin-top:6px">Evaluation stream</h2></div><span class="muted" style="font-size:13px" id="logN">Recent predictions (kept in this browser tab only)</span></div>
+    <div class="table-scroll"><table class="tbl head-navy" id="log"></table></div>
+  </div>
+</main>
+
+<script src="js/board.js"></script>
+<script src="js/common.js"></script>
+<script src="js/charts.js"></script>
+<script>
+const layer = drawBoard($("board"));
+const PRESETS = ["T20", "IB", "D20", "T19", "D16", "S5", "OB"];
+const RMM = { ib: 6.35, ob: 15.9, ti: 99, to: 107, di: 162, do: 170 };
+let busy = false, zoom = false, LOG = [], last = null;
+
+function unitInfo() {
+  const mm = settings.unit === "mm";
+  $("unitChip").textContent = mm ? "Millimetres from centre" : "Normalised (edge = 1.0)";
+  ["x", "y"].forEach(id => $(id).step = mm ? "1" : "0.01");
+}
+function setInputs(nx, ny) {
+  const mm = settings.unit === "mm";
+  $("x").value = mm ? (nx * 170).toFixed(1) : nx.toFixed(3);
+  $("y").value = mm ? (ny * 170).toFixed(1) : ny.toFixed(3);
+}
+$("presets").innerHTML = PRESETS.map(l => `<button class="preset" data-l="${l}">${l}</button>`).join("");
+document.querySelectorAll(".preset").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".preset").forEach(x => x.classList.toggle("on", x === b));
+  const c = regionCenter(b.dataset.l); setInputs(c.x, c.y); predict();
+});
+document.querySelectorAll(".pm button").forEach(b => b.onclick = () => {
+  const el = $(b.dataset.t), step = settings.unit === "mm" ? 1 : 0.01;
+  el.value = (+el.value + step * +b.dataset.d).toFixed(settings.unit === "mm" ? 1 : 3); predict();
+});
+
+function radialGauge(rmm) {
+  const max = 185, P = v => v / max * 100;
+  const bands = [[0, RMM.ib, "#B83A2B"], [RMM.ib, RMM.ob, "#2E6F73"], [RMM.ob, RMM.ti, "#F3EAD7"], [RMM.ti, RMM.to, "#E0533F"],
+                 [RMM.to, RMM.di, "#F3EAD7"], [RMM.di, RMM.do, "#2E6F73"], [RMM.do, max, "#D9CDB6"]];
+  $("gR").innerHTML = bands.map(([a, b, c]) => `<div class="band" style="left:${P(a)}%;width:${P(b) - P(a)}%;background:${c}"></div>`).join("") +
+    `<div class="pin" style="left:${Math.min(100, P(rmm))}%"></div>`;
+  const zone = rmm <= RMM.ib ? "Inner bull" : rmm <= RMM.ob ? "Outer bull" : rmm <= RMM.ti ? "Inner single" : rmm <= RMM.to ? "Treble ring" : rmm <= RMM.di ? "Outer single" : rmm <= RMM.do ? "Double ring" : "Off board";
+  $("gRtag").textContent = `r = ${rmm.toFixed(1)} mm · ${zone}`;
+  return zone;
+}
+function angleGauge(r) {
+  if (r.r_mm <= RMM.ob || r.r_mm > RMM.do) {
+    $("gT").innerHTML = `<div class="band" style="left:0;width:100%;background:#E7EEF3"></div>`;
+    $("gTs").innerHTML = "<span>No sector: bull and off-board shots score by radius only</span>";
+    $("gTtag").textContent = "–"; return null;
+  }
+  const idx = SECTORS.indexOf(r.sector), c = 90 - idx * 18;
+  let d = r.theta_deg - c; d = ((d + 540) % 360) - 180;              // signed difference to the sector centre
+  const left = SECTORS[(idx + 19) % 20], right = SECTORS[(idx + 1) % 20];
+  const pinPos = (27 - d) / 54 * 100;
+  $("gT").innerHTML = `<div class="band" style="left:0;width:33.33%;background:#E7EEF3"></div><div class="band" style="left:33.33%;width:33.34%;background:#CFEDEE"></div><div class="band" style="left:66.67%;width:33.33%;background:#E7EEF3"></div>` +
+    `<div class="pin" style="left:${Math.max(0, Math.min(100, pinPos))}%"></div>`;
+  const norm = a => ((a % 360) + 360) % 360;
+  $("gTs").innerHTML = `<span>${left}</span><span>${norm(c + 9).toFixed(0)}° wire</span><span><b>${r.sector}</b></span><span>${norm(c - 9).toFixed(0)}° wire</span><span>${right}</span>`;
+  $("gTtag").textContent = `θ = ${norm(r.theta_deg).toFixed(1)}° · sector ${r.sector}`;
+  return { c, d };
+}
+
+async function predict() {
+  if (busy) return; busy = true;
+  const body = { x: +$("x").value, y: +$("y").value, unit: settings.unit, model: settings.model };
+  try {
+    const r = await api("/api/predict", body);
+    last = r;
+    addMarker(layer, r.x, r.y, r.label);
+    $("board").setAttribute("viewBox", zoom ? `${r.x - .3} ${-r.y - .3} .6 .6` : "-1.22 -1.22 2.44 2.44");
+    $("readout").textContent = `x ${r.x_mm.toFixed(2)} mm · y ${r.y_mm.toFixed(2)} mm`;
+    $("rTag").textContent = `Predicted: ${r.label}`;
+    $("rName").textContent = `${r.label_name} · ${r.score} points`;
+    $("rScore").textContent = r.score;
+    $("rAgree").className = r.agrees ? "chip" : "chip red";
+    $("rAgree").innerHTML = r.agrees ? '<span class="dot"></span>Geometry agrees' : `<span class="dot red"></span>Rules say ${esc(r.geometry_label)}`;
+    $("rConf").textContent = r.confidence === null ? "n/a" : pct(r.confidence, 1);
+    $("rConfBar").style.width = r.confidence === null ? "0" : (r.confidence * 100) + "%";
+    $("rModel").textContent = `${modelName(r.model)} · ${r.inference_ms.toFixed(2)} ms` + (r.confidence === null ? " · this model gives no probability" : "");
+    $("latChip").textContent = `Model latency ${r.inference_ms.toFixed(2)} ms`;
+    $("pR").textContent = `${r.r_mm.toFixed(2)} mm`; $("pRs").textContent = `r = ${r.r.toFixed(3)} (edge 1.0)`;
+    const th = ((r.theta_deg % 360) + 360) % 360;
+    $("pT").textContent = `${th.toFixed(2)}°`; $("pTs").textContent = r.label === "MISS" || ["IB", "OB"].includes(r.label) ? "no sector" : `sector ${r.sector}`;
+    $("pW").textContent = isFinite(r.wire_mm) ? `${r.wire_mm.toFixed(2)} mm` : "–"; $("pWs").textContent = isFinite(r.wire_mm) ? (r.wire_mm < 1.7 ? "close to a wire" : "clear of wires") : "";
+    const zone = radialGauge(r.r_mm), ang = angleGauge(r);
+    $("takeaway").innerHTML = `<b>Takeaway:</b> r = ${r.r_mm.toFixed(1)} mm is in the ${zone.toLowerCase()}` +
+      (ang ? ` and θ is ${Math.abs(ang.d).toFixed(1)}° from the centre of sector ${r.sector} (wires at ±9°)` : "") +
+      `. The nearest wire is ${isFinite(r.wire_mm) ? r.wire_mm.toFixed(1) + " mm" : "not applicable"} away, so ` +
+      (r.wire_mm < 1.7 ? "this is a borderline throw where models are most likely to disagree." : "the region is unambiguous.") +
+      ` The rules give ${esc(r.geometry_label)} = ${r.geometry_score} pts.`;
+    LOG.unshift({ t: new Date().toLocaleTimeString(), ...r }); LOG = LOG.slice(0, 12); renderLog();
+    compareAll(body);
+  } catch (e) { showError("Prediction failed: " + esc(e.message)); }
+  busy = false;
+}
+
+async function compareAll(body) {
+  try {
+    const a = await api("/api/predict/all", body);
+    $("consensus").textContent = `${a.consensus}/${a.n} agree with geometry (${a.geometry_label})`;
+    $("consensus").className = a.consensus === a.n ? "chip" : "chip gold";
+    const rows = [...a.models].sort((p, q) => (q.feature_set === "engineered") - (p.feature_set === "engineered") || p.name.localeCompare(q.name));
+    $("allTbl").innerHTML = `<thead><tr><th>Model</th><th>Features</th><th>Pred.</th><th class="num">Conf.</th><th class="num">ms</th><th>Agreement</th></tr></thead><tbody>` +
+      rows.map(m => `<tr class="${m.key === settings.model ? "hl" : ""}"><td><b>${esc(m.name)}</b></td><td class="mono" style="font-size:12px">${m.feature_set}</td>
+        <td>${labelTag(m.label)}</td><td class="num">${m.confidence === null ? "–" : pct(m.confidence, 1)}</td><td class="num">${m.inference_ms.toFixed(2)}</td>
+        <td><span class="tag ${m.agrees ? "ok" : "bad"}">${m.agrees ? "● Agree" : "✗ Differs"}</span></td></tr>`).join("") + "</tbody>";
+  } catch (e) { noData($("allTbl"), "Comparison unavailable: " + e.message); }
+}
+
+function renderLog() {
+  $("log").innerHTML = `<thead><tr><th>Time</th><th class="num">x mm</th><th class="num">y mm</th><th>Region</th><th class="num">Pts</th><th class="num">Conf.</th><th class="num">Wire mm</th><th>Geometry</th></tr></thead><tbody>` +
+    (LOG.length ? LOG.map(r => `<tr><td class="mono">${r.t}</td><td class="num">${r.x_mm.toFixed(2)}</td><td class="num">${r.y_mm.toFixed(2)}</td><td>${labelTag(r.label)}</td><td class="num">${r.score}</td>
+      <td class="num">${r.confidence === null ? "–" : pct(r.confidence, 1)}</td><td class="num ${r.wire_mm < 1.7 ? "red-t" : ""}">${isFinite(r.wire_mm) ? r.wire_mm.toFixed(2) : "–"}</td>
+      <td><span class="tag ${r.agrees ? "ok" : "bad"}">${r.agrees ? "● Agree" : "✗ " + esc(r.geometry_label)}</span></td></tr>`).join("") : `<tr><td colspan="8" class="empty">No predictions yet.</td></tr>`) + "</tbody>";
+}
+$("dlBtn").onclick = () => {
+  if (!LOG.length) return;
+  const h = "time,x_mm,y_mm,predicted,score,confidence,wire_mm,geometry,agrees,model";
+  downloadText("dartvision_predictions.csv", [h, ...LOG.map(r => [r.t, r.x_mm.toFixed(2), r.y_mm.toFixed(2), r.label, r.score, r.confidence ?? "", isFinite(r.wire_mm) ? r.wire_mm.toFixed(2) : "", r.geometry_label, r.agrees, r.model].join(","))].join("\n"));
+};
+
+$("predictBtn").onclick = predict;
+["x", "y"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") predict(); }));
+$("randomBtn").onclick = () => { const r = 1.12 * Math.sqrt(Math.random()), t = Math.random() * 2 * Math.PI; setInputs(r * Math.cos(t), r * Math.sin(t)); predict(); };
+$("board").addEventListener("click", e => { const p = boardPointFromEvent($("board"), e); setInputs(p.x, p.y); predict(); });
+document.querySelectorAll("#zoomT button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#zoomT button").forEach(x => x.classList.toggle("on", x === b)); zoom = b.dataset.z === "1"; if (last) predict();
+});
+
+let lastUnit = settings.unit;
+onSettings(s => {
+  if (s.unit !== lastUnit) {
+    const f = s.unit === "mm" ? 170 : 1 / 170, d = s.unit === "mm" ? 1 : 3;
+    ["x", "y"].forEach(id => $(id).value = (+$(id).value * f).toFixed(d));
+    lastUnit = s.unit; unitInfo();
+  }
+  predict();
+});
+renderLog();
+initShell("predict").then(() => { unitInfo(); predict(); }).catch(() => {});
+</script>
+</body>
+</html>
