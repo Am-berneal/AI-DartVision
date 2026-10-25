@@ -79,10 +79,90 @@
       <div class="table-scroll"><table class="tbl" id="roster"></table></div>
     </div>
   </div>
+
+  <!-- ===================== DEEPER ANALYTICS ===================== -->
+  <div class="section-title"><span class="label">Deeper analytics</span><h2>Performance profile</h2><span class="muted" style="font-size:13px" id="anNote"></span></div>
+
+  <div class="grid g-wide" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head"><div><h2>Strengths vs the roster</h2><div class="muted" style="font-size:13px;margin-top:4px">Each axis is scaled across the players in the roster: outer edge = best value, centre = lowest</div></div></div>
+      <div class="grid g2" style="align-items:center;gap:16px">
+        <div id="radar"></div>
+        <div><div class="legend" style="justify-content:flex-start" id="radarLegend"></div><div class="rank-list" id="ranks"></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Milestones</h2><span class="chip sky" id="grpMethod"></span></div>
+      <div class="stat-grid" id="milestones"></div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head"><div><h2>Scoring zones by session</h2><div class="muted" style="font-size:13px;margin-top:4px">Share of darts in each ring, per session</div></div></div>
+      <div id="zones"></div>
+      <div class="legend" style="justify-content:flex-start;margin-top:8px" id="zonesLegend"></div>
+      <div class="chart-note" id="zonesNote"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Where darts land, by number</h2><div class="muted" style="font-size:13px;margin-top:4px">Bar length = darts in that number (single, double or treble)</div></div></div>
+      <div class="board-wrap" style="max-width:380px"><svg id="sectors"></svg></div>
+      <div class="chart-note" id="sectorNote"></div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head"><div><h2>Precision and drift</h2><div class="muted" style="font-size:13px;margin-top:4px">Zoomed on the target: grouping circles and each session's centre</div></div></div>
+      <div class="board-wrap" style="max-width:420px"><svg id="drift"></svg></div>
+      <div class="legend" style="justify-content:flex-start;margin-top:10px">
+        <span><i class="c" style="background:#F2C14E"></i>Target</span>
+        <span><i class="c" style="background:#8FD3D6"></i>Session centres S1 → last</span>
+        <span><i style="background:transparent;border:2px solid #E0533F"></i>CEP50 (half of darts)</span>
+        <span><i style="background:transparent;border:2px dashed #E0533F"></i>CEP90</span>
+      </div>
+      <div class="chart-note" id="driftNote"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Precision by session</h2><div class="muted" style="font-size:13px;margin-top:4px" id="cepSub">Grouping radius around the group centre</div></div>
+        <div class="toggle" id="cepT"><button data-v="cep" class="on">Grouping radius</button><button data-v="bias">Bias</button></div>
+      </div>
+      <div id="cepTrend"></div>
+      <div class="legend" style="justify-content:flex-start;margin-top:6px" id="cepLegend"></div>
+      <div class="chart-note" id="cepNote"></div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head"><div><h2>3-dart totals</h2><div class="muted" style="font-size:13px;margin-top:4px">How often each score band occurs (100+ highlighted)</div></div></div>
+      <div id="hist"></div>
+      <div class="chart-note" id="histNote"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Within-session pattern</h2><div class="muted" style="font-size:13px;margin-top:4px">Points per dart in the first, middle and last third of each session</div></div></div>
+      <div id="fatigue"></div>
+      <div class="chart-note" id="fatigueNote"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:22px">
+    <div class="card-head">
+      <div><div class="label red">Head-to-head</div><h2 style="margin-top:6px" id="cmpTitle">Compare players</h2></div>
+      <div class="row"><span class="label">Compare with</span><select class="plain" id="cmpSel"></select></div>
+    </div>
+    <div class="grid g-wide" style="align-items:start">
+      <div class="table-scroll"><table class="tbl" id="cmpTable"></table></div>
+      <div><div class="label" style="margin-bottom:6px">Points per dart by session</div><div id="cmpTrend"></div><div class="legend" style="justify-content:flex-start;margin-top:6px" id="cmpLegend"></div></div>
+    </div>
+    <div class="chart-note" id="cmpNote"></div>
+  </div>
 </main>
 
 <script src="js/board.js"></script>
 <script src="js/common.js"></script>
+<script src="js/charts.js"></script>
 <script>
 const SESS_COL = ["#2E6F73", "#6C7FA8", "#B83A2B", "#D4A64A", "#7B5EA7", "#3E8E5E"];
 let ROSTER = [], CUR = null, trendMode = "score", zoom = false;
@@ -149,6 +229,7 @@ async function load(name) {
     $("sessLegend").innerHTML = d.trend.map((t, i) => `<span class="mono" style="font-size:12px"><i class="c" style="background:${SESS_COL[i % SESS_COL.length]}"></i>S${t.session}</span>`).join("");
     $("dataChip").textContent = `${esc(name)} · ${f.throws} darts`;
     renderBoards(d); renderTrend(d); renderRoster();
+    loadAnalytics(name);
   } catch (e) { showError("Could not load player: " + esc(e.message)); }
 }
 
@@ -169,6 +250,174 @@ initShell("players").then(async () => {
   $("playerSel").onchange = e => load(e.target.value);
   load(start);
 }).catch(e => showError("Could not load players: " + esc(e.message)));
+</script>
+
+<script>
+/* ===================== DEEPER ANALYTICS ===================== */
+let AN = null, cepMode = "cep";
+const sessLabel = s => "S" + s.session;
+function safe(fn, el) { try { fn(); } catch (e) { console.error(e); noData($(el), "Could not draw this chart."); } }
+function fmtMetric(key, v, unit) {
+  if (v === null || v === undefined) return "–";
+  if (unit === "%") return pct(v, 1);
+  if (unit === "mm") return v.toFixed(1) + " mm";
+  if (unit === "pts/dart") return (key === "improvement" && v > 0 ? "+" : "") + v.toFixed(2);
+  if (unit === "darts") return String(v);
+  return v.toFixed(key === "ppd" ? 2 : 1);
+}
+const RADAR_FMT = { ppd: v => v.toFixed(2) + " pts/dart", hit_rate: v => pct(v, 1), cep50_mm: v => v.toFixed(1) + " mm", session_variation: v => "±" + v.toFixed(2) + " pts/dart", treble_rate: v => pct(v, 1), improvement: v => (v > 0 ? "+" : "") + v.toFixed(2) + " /session" };
+
+async function loadAnalytics(name) {
+  const boxes = ["radar", "milestones", "zones", "cepTrend", "hist", "fatigue", "cmpTable"];
+  boxes.forEach(b => $(b).innerHTML = '<div class="empty-note">Loading…</div>');
+  try { AN = await api("/api/players/" + encodeURIComponent(name) + "/analytics"); }
+  catch (e) { boxes.forEach(b => noData($(b), "Analytics unavailable: " + e.message)); return; }
+  $("anNote").textContent = `${AN.core.darts} darts · ${AN.core.sessions} sessions · computed from the recorded throws`;
+  safe(renderRadar, "radar"); safe(renderMilestones, "milestones"); safe(renderZones, "zones");
+  safe(renderSectors, "sectorNote"); safe(renderDrift, "driftNote"); safe(renderCep, "cepTrend");
+  safe(renderHist, "hist"); safe(renderFatigue, "fatigue"); setupCompare(name);
+}
+
+function renderRadar() {
+  const r = AN.radar, keys = r.axes.map(a => a.key);
+  radarChart($("radar"), r.axes, [
+    { name: "Roster average", color: "#1B2536", values: keys.map(k => r.roster_avg[k]), dash: true },
+    { name: AN.player, color: "#B83A2B", values: keys.map(k => r.player[k]) }]);
+  $("radarLegend").innerHTML = `<span><i style="background:#B83A2B"></i>${esc(AN.player.split(" (")[0])}</span><span><i style="background:transparent;border:2px dashed #1B2536"></i>Roster average</span>`;
+  $("ranks").innerHTML = r.axes.map(a => {
+    const v = AN.core[a.key], rk = r.ranks[a.key];
+    return `<div><span>${esc(a.label)}</span><span class="mono">${v === null || v === undefined ? "–" : RADAR_FMT[a.key](v)}${rk ? ` · <b>#${rk.rank}</b>/${rk.of}` : ""}</span></div>`;
+  }).join("");
+}
+
+function renderMilestones() {
+  const v = AN.visits, c = AN.core;
+  $("grpMethod").textContent = v.method === "recorded visits" ? "Recorded visits" : "Groups of 3 consecutive darts";
+  const tiles = [
+    ["Best 3-dart total", v.best, v.visits ? `of ${v.visits} groups` : ""],
+    ["100+ totals", v.count_100, v.visits ? pct(v.count_100 / v.visits, 0) + " of groups" : ""],
+    ["140+ totals", v.count_140, v.visits ? pct(v.count_140 / v.visits, 0) + " of groups" : ""],
+    ["180s", v.count_180, "maximum score"],
+    [`Longest ${c.aim || "target"} streak`, c.longest_hit_streak, "consecutive hits"],
+    ["Change per session", c.improvement === null ? null : (c.improvement > 0 ? "+" : "") + c.improvement.toFixed(2), "pts/dart, linear trend"],
+  ];
+  $("milestones").innerHTML = tiles.map(([l, val, sub]) => `<div class="stat"><span class="label">${esc(l)}</span><b>${val === null || val === undefined ? "–" : esc(String(val))}</b><small>${esc(sub)}</small></div>`).join("");
+}
+
+function renderZones() {
+  const s = AN.sessions;
+  if (!s.length) return noData($("zones"));
+  stackedBars($("zones"), s.map(sessLabel), ZONE_KEYS.map(k => ({ key: k, name: ZONE_NAME[k], color: ZONE_COL[k], values: s.map(r => r[k + "_rate"]) })));
+  zoneLegend($("zonesLegend"));
+  const a = s[0].treble_rate, b = s.at(-1).treble_rate;
+  $("zonesNote").textContent = s.length > 1 && a !== null && b !== null ? `Treble share: ${pct(a, 0)} in S${s[0].session} → ${pct(b, 0)} in S${s.at(-1).session}.` : "";
+}
+
+function renderSectors() {
+  sectorChart($("sectors"), AN.sectors);
+  const top = [...AN.sectors.sectors].sort((x, y) => y.count - x.count).filter(x => x.count).slice(0, 3);
+  $("sectorNote").textContent = top.length ? "Most darts: " + top.map(t => `${t.number} (${pct(t.count / AN.sectors.darts, 0)})`).join(", ") + `. Bull ${AN.sectors.bull}, miss ${AN.sectors.miss}.` : "No darts recorded.";
+}
+
+function renderDrift() {
+  const svg = $("drift"), aim = AN.aim || { x: 0, y: 0 }, g = AN.grouping;
+  const sector = AN.core.aim && /^[SDT]\d+$/.test(AN.core.aim) ? +AN.core.aim.slice(1) : null;
+  const L = drawBoard(svg, { style: "schematic", highlight: sector, numbers: false });
+  const span = Math.min(.32, Math.max(.1, g ? g.cep90_mm / 170 * 2.4 : .26));
+  svg.setAttribute("viewBox", `${aim.x - span} ${-aim.y - span} ${span * 2} ${span * 2}`);
+  if (g) {
+    svgEl("circle", { cx: g.centre_x, cy: -g.centre_y, r: g.cep90_mm / 170, fill: "none", stroke: "#E0533F", "stroke-width": .004 * span / .26, "stroke-dasharray": `${.01 * span / .26} ${.008 * span / .26}` }, L);
+    svgEl("circle", { cx: g.centre_x, cy: -g.centre_y, r: g.cep50_mm / 170, fill: "#E0533F", "fill-opacity": .12, stroke: "#E0533F", "stroke-width": .005 * span / .26 }, L);
+  }
+  const k = span / .26;
+  svgEl("line", { x1: aim.x - .02 * k, y1: -aim.y, x2: aim.x + .02 * k, y2: -aim.y, stroke: "#F2C14E", "stroke-width": .004 * k }, L);
+  svgEl("line", { x1: aim.x, y1: -aim.y - .02 * k, x2: aim.x, y2: -aim.y + .02 * k, stroke: "#F2C14E", "stroke-width": .004 * k }, L);
+  const pts = AN.sessions.filter(s => s.centre_x !== null);
+  if (pts.length > 1) svgEl("polyline", { points: pts.map(s => `${s.centre_x},${-s.centre_y}`).join(" "), fill: "none", stroke: "#8FD3D6", "stroke-width": .003 * span / .26 }, L);
+  const u = span / .26;                                   // scale marks to the zoom level
+  pts.forEach((s, i) => {
+    const op = pts.length > 1 ? .35 + .65 * i / (pts.length - 1) : 1;   // later sessions = stronger
+    const c = svgEl("circle", { cx: s.centre_x, cy: -s.centre_y, r: (i === pts.length - 1 ? .008 : .006) * u, fill: "#8FD3D6", "fill-opacity": op, stroke: "#1B2536", "stroke-width": .002 * u }, L);
+    const tt = svgEl("title", {}, c); tt.textContent = `S${s.session} centre`;
+  });
+  if (pts.length > 1) {                                   // label only the first and last session, if they are apart
+    const f = pts[0], l = pts.at(-1), apart = Math.hypot(f.centre_x - l.centre_x, f.centre_y - l.centre_y) > .02 * u;
+    (apart ? [f, l] : [l]).forEach(s => {
+      const t = svgEl("text", { x: s.centre_x + .012 * u, y: -s.centre_y - .01 * u, "font-size": .02 * u, fill: "#E9EDF3", "font-family": "IBM Plex Mono, monospace" }, L);
+      t.textContent = apart ? "S" + s.session : `S${f.session}–S${l.session}`;
+    });
+  }
+  const f = pts[0], l = pts.at(-1), d = s => Math.hypot(s.bias_x_mm ?? NaN, s.bias_y_mm ?? NaN);
+  $("driftNote").textContent = g ? `Half of all darts land within ${fmt(g.cep50_mm)} mm of the group centre, 90% within ${fmt(g.cep90_mm)} mm.` + (f && l && f !== l && isFinite(d(f)) ? ` Offset from the target: ${d(f).toFixed(1)} mm in S${f.session} → ${d(l).toFixed(1)} mm in S${l.session}.` : "") : "Needs at least 5 darts.";
+}
+
+function renderCep() {
+  const s = AN.sessions, labels = s.map(sessLabel);
+  if (cepMode === "cep") {
+    $("cepSub").textContent = "Grouping radius around the group centre (lower = tighter)";
+    trendChart($("cepTrend"), labels, [{ name: "CEP50", color: "#B83A2B", values: s.map(r => r.cep50_mm) }], { fmt: v => v.toFixed(1), zero: true });
+    $("cepLegend").innerHTML = '<span><i style="background:#B83A2B"></i>CEP50 (mm)</span>';
+    const a = s[0]?.cep50_mm, b = s.at(-1)?.cep50_mm;
+    $("cepNote").textContent = a !== null && b !== null && s.length > 1 ? `CEP50 ${fmt(a)} mm in S${s[0].session} → ${fmt(b)} mm in S${s.at(-1).session}.` : "";
+  } else {
+    $("cepSub").textContent = "Average offset of the darts from the target (0 = centred)";
+    if (s.every(r => r.bias_x_mm === null)) return noData($("cepTrend"), "Bias needs a target for each dart.");
+    trendChart($("cepTrend"), labels, [
+      { name: "Horizontal (+ right)", color: "#2E6F73", values: s.map(r => r.bias_x_mm) },
+      { name: "Vertical (+ up)", color: "#D4A64A", values: s.map(r => r.bias_y_mm) }], { fmt: v => v.toFixed(1), ref: { value: 0, label: "on target" } });
+    $("cepLegend").innerHTML = '<span><i style="background:#2E6F73"></i>Horizontal mm (+ right)</span><span><i style="background:#D4A64A"></i>Vertical mm (+ up)</span>';
+    $("cepNote").textContent = "";
+  }
+}
+
+function renderHist() {
+  const v = AN.visits;
+  histogram($("hist"), v.histogram, { highlightFrom: 100, xLabel: "points per 3-dart group" });
+  $("histNote").textContent = v.visits ? `${v.visits} groups (${v.method}). Average ${v.mean}, standard deviation ${v.std}.` : "";
+}
+
+function renderFatigue() {
+  const f = AN.fatigue;
+  if (!f) return noData($("fatigue"), "Needs dart order within sessions.");
+  barChart($("fatigue"), f.map(p => ({ label: p.phase, value: p.ppd, sub: p.hit_rate === null ? `${p.darts} darts` : `hit ${pct(p.hit_rate, 0)} · ${p.darts} darts`, color: "#2E6F73" })), { fmt: v => v.toFixed(1) });
+  const best = [...f].sort((a, b) => b.ppd - a.ppd)[0];
+  $("fatigueNote").textContent = `Highest scoring third: ${best.phase.toLowerCase()} (${best.ppd} pts/dart).`;
+}
+
+function setupCompare(name) {
+  const others = ROSTER.map(p => p.player).filter(p => p !== name);
+  if (!others.length) return noData($("cmpTable"), "Needs at least two players.");
+  const prev = $("cmpSel").value;
+  $("cmpSel").innerHTML = others.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join("");
+  if (others.includes(prev)) $("cmpSel").value = prev;
+  $("cmpSel").onchange = () => runCompare(name, $("cmpSel").value);
+  runCompare(name, $("cmpSel").value);
+}
+
+async function runCompare(a, b) {
+  $("cmpTitle").textContent = `${a.split(" (")[0]} vs ${b.split(" (")[0]}`;
+  try {
+    const c = await api(`/api/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`);
+    const short = n => esc(n.split(" (")[0]);
+    $("cmpTable").innerHTML = `<thead><tr><th>Metric</th><th class="num">${short(a)}</th><th class="num">${short(b)}</th></tr></thead><tbody>` +
+      c.metrics.map(m => `<tr><td>${esc(m.label)}<div class="muted" style="font-size:11px">${m.higher_is_better ? "higher is better" : "lower is better"}</div></td>
+        <td class="num ${m.better === "a" ? "win" : (m.better === "b" ? "lose" : "")}">${fmtMetric(m.key, m.a, m.unit)}</td>
+        <td class="num ${m.better === "b" ? "win" : (m.better === "a" ? "lose" : "")}">${fmtMetric(m.key, m.b, m.unit)}</td></tr>`).join("") + "</tbody>";
+    const n = Math.max(c.sessions.a.length, c.sessions.b.length), labels = Array.from({ length: n }, (_, i) => "S" + (i + 1));
+    trendChart($("cmpTrend"), labels, [
+      { name: a, color: "#B83A2B", values: labels.map((_, i) => c.sessions.a[i]?.ppd ?? null) },
+      { name: b, color: "#2E6F73", values: labels.map((_, i) => c.sessions.b[i]?.ppd ?? null) }], { fmt: v => v.toFixed(1) });
+    $("cmpLegend").innerHTML = `<span><i style="background:#B83A2B"></i>${short(a)}</span><span><i style="background:#2E6F73"></i>${short(b)}</span>`;
+    const wins = { a: c.metrics.filter(m => m.better === "a").length, b: c.metrics.filter(m => m.better === "b").length };
+    $("cmpNote").textContent = `${a.split(" (")[0]} leads on ${wins.a} of ${c.metrics.length} metrics, ${b.split(" (")[0]} on ${wins.b}.` +
+      (c.same_aim ? "" : ` Different targets (${c.aim_a} vs ${c.aim_b}): hit rate, error and streaks are measured against each player's own target.`);
+  } catch (e) { noData($("cmpTable"), "Comparison unavailable: " + e.message); $("cmpTrend").innerHTML = ""; }
+}
+
+document.querySelectorAll("#cepT button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#cepT button").forEach(x => x.classList.toggle("on", x === b));
+  cepMode = b.dataset.v; if (AN) safe(renderCep, "cepTrend");
+});
 </script>
 </body>
 </html>

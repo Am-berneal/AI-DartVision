@@ -28,6 +28,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .analytics import grouping, trend_slope
+from .analytics import session_table as _session_stats
+
 from .board import LABEL_NAMES
 from .players import bias_description, player_summary, session_trend
 
@@ -93,6 +96,9 @@ def player_facts(throws: pd.DataFrame, player: str) -> dict:
         "top_off_target": off.index[0] if len(off) else None,
         "top_off_target_pct": round(float(off.iloc[0]) / len(pt) * 100, 1) if len(off) else 0.0,
         "triple_width_mm": TRIPLE_WIDTH_MM,
+        # extra verified statistics from dartvision.analytics (None when the data cannot support them)
+        "grouping_cep50_mm": (grouping(pt) or {}).get("cep50_mm"),
+        "ppd_change_per_session": trend_slope(_session_stats(pt)),
     }
 
 

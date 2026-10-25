@@ -31,7 +31,7 @@
       <div class="row" style="gap:16px;align-items:flex-start">
         <div style="width:54px;height:54px;border-radius:14px;background:var(--blush);display:grid;place-items:center;font-size:24px;color:var(--red)">⇪</div>
         <div>
-          <h2>Drop a CSV with columns x, y (and optional player)</h2>
+          <h2>Drop a CSV with columns x, y (and optional player, target, session)</h2>
           <div class="muted" style="font-size:13px;margin-top:6px" id="unitHint"></div>
         </div>
       </div>
@@ -82,12 +82,28 @@
         </div>
       </div>
     </div>
+
+    <div class="card" style="margin-top:22px" id="psCard">
+      <div class="card-head">
+        <div><div class="label red">Your throws</div><h2 style="margin-top:6px">Per-player summary</h2><div class="muted" style="font-size:13px;margin-top:4px">Computed from the uploaded coordinates, scored with the board rules</div></div>
+        <span class="chip sky" id="psChip"></span>
+      </div>
+      <div class="table-scroll"><table class="tbl" id="psTbl"></table></div>
+      <div class="legend" style="justify-content:flex-start;margin-top:10px" id="psLegend"></div>
+      <div id="psTrendWrap" style="display:none;margin-top:18px">
+        <div class="label" style="margin-bottom:6px">Points per dart by session</div>
+        <div id="psTrend"></div>
+        <div class="legend" style="justify-content:flex-start;margin-top:6px" id="psTrendLegend"></div>
+      </div>
+      <ul class="note-list" id="psNotes"></ul>
+    </div>
   </div>
 
 </main>
 
 <script src="js/board.js"></script>
 <script src="js/common.js"></script>
+<script src="js/charts.js"></script>
 <script>
 let INPUT = null, RESULT = null, fileName = "", view = "all";
 
@@ -95,13 +111,13 @@ function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) throw new Error("CSV needs a header and at least one row");
   const head = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/^"|"$/g, ""));
-  const xi = head.indexOf("x"), yi = head.indexOf("y"), pi = head.indexOf("player");
+  const xi = head.indexOf("x"), yi = head.indexOf("y"), pi = head.indexOf("player"), ti = head.indexOf("target"), si = head.indexOf("session");
   if (xi < 0 || yi < 0) throw new Error("CSV needs columns named x and y");
   const rows = [], skipped = [];
   lines.slice(1).forEach((l, i) => {
     const c = l.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
     const x = parseFloat(c[xi]), y = parseFloat(c[yi]);
-    if (Number.isFinite(x) && Number.isFinite(y)) rows.push({ x, y, player: pi >= 0 ? c[pi] : null });
+    if (Number.isFinite(x) && Number.isFinite(y)) rows.push({ x, y, player: pi >= 0 ? c[pi] : null, target: ti >= 0 ? c[ti] : null, session: si >= 0 ? c[si] : null });
     else skipped.push(i + 2);
   });
   return { rows, skipped };
@@ -141,7 +157,7 @@ function render() {
   $("agreeTag").className = s.discrepancies ? "chip red" : "chip";
   $("sAgreeS").textContent = s.discrepancies ? `${s.discrepancies} dart(s) where the model disagrees with the rules — usually near a wire.` : `${modelName(RESULT.model)} and the geometry rules agree on every dart.`;
   $("mr").textContent = fmt(s.mean_r, 3); $("sr").textContent = fmt(s.std_r, 3); $("rr").textContent = `${fmt(s.r_min, 2)}–${fmt(s.r_max, 2)}`;
-  renderTable(); renderBoard();
+  renderTable(); renderBoard(); renderPlayerSummary();
 }
 
 function renderTable() {
@@ -197,7 +213,7 @@ drop.addEventListener("drop", e => e.dataTransfer.files[0] && readFile(e.dataTra
 $("sampleBtn").onclick = async () => {
   try {
     const s = await api("/api/sample");
-    const rows = s.rows.map(r => ({ x: r.x, y: r.y, player: r.player }));
+    const rows = s.rows.map(r => ({ x: r.x, y: r.y, player: r.player, target: r.target ?? null, session: r.session ?? null }));
     if (settings.unit !== "norm") {           // the sample file is in normalised units
       INPUT = rows; fileName = s.file;
       document.querySelectorAll("#unitSeg button").forEach(b => b.classList.toggle("on", b.dataset.u === "norm"));
@@ -217,6 +233,35 @@ initShell("batch").then(() => {
   $("engineChip").textContent = "Engine: " + modelName(settings.model);
   $("rerunSel").innerHTML = MODELS.map(m => `<option value="${m.key}" ${m.key === settings.model ? "selected" : ""}>${m.name} (${m.feature_set})</option>`).join("");
 }).catch(() => {});
+</script>
+
+<script>
+/* ===================== PER-PLAYER SUMMARY ===================== */
+const PS_COL = ["#B83A2B", "#2E6F73", "#D4A64A", "#6C7FA8", "#7B5EA7", "#3E8E5E"];
+function renderPlayerSummary() {
+  const ps = RESULT && RESULT.player_summary;
+  if (!ps || !ps.players || !ps.players.length) {
+    noData($("psTbl"), ps && ps.notes && ps.notes.length ? ps.notes.join(" ") : "Summary unavailable for this file.");
+    $("psNotes").innerHTML = ""; $("psTrendWrap").style.display = "none"; return;
+  }
+  const t = ps.has_target;
+  $("psChip").textContent = `${ps.players.length} player${ps.players.length > 1 ? "s" : ""}${t ? " · targets given" : ""}${ps.has_session ? " · sessions given" : ""}`;
+  $("psTbl").innerHTML = `<thead><tr><th>Player</th><th class="num">Darts</th><th class="num">Pts/dart</th><th class="num">3-dart avg*</th><th>Zone mix</th><th class="num">CEP50</th>${t ? '<th class="num">Hit rate</th><th class="num">Bias x / y</th><th class="num">Mean error</th>' : ""}</tr></thead><tbody>` +
+    ps.players.map(p => `<tr><td><b>${esc(p.player)}</b>${p.targets && p.targets.length ? `<div class="muted" style="font-size:11px">target ${esc(p.targets.join(", "))}</div>` : ""}</td>
+      <td class="num">${p.darts}</td><td class="num">${fmt(p.ppd, 2)}</td><td class="num">${p.group_avg === null ? "–" : fmt(p.group_avg, 1)}</td>
+      <td>${zoneMiniBar(p.zones)}</td><td class="num">${p.cep50_mm === null ? "–" : fmt(p.cep50_mm, 1) + " mm"}</td>
+      ${t ? `<td class="num">${p.hit_rate === null ? "–" : pct(p.hit_rate, 1)}</td><td class="num">${p.bias_x_mm === null ? "–" : `${fmt(p.bias_x_mm, 1)} / ${fmt(p.bias_y_mm, 1)} mm`}</td><td class="num">${p.mean_error_mm === null ? "–" : fmt(p.mean_error_mm, 1) + " mm"}</td>` : ""}</tr>`).join("") + "</tbody>";
+  zoneLegend($("psLegend"));
+  const withSessions = ps.players.filter(p => p.sessions && p.sessions.length > 1).slice(0, PS_COL.length);
+  if (withSessions.length) {
+    const labels = [...new Set(withSessions.flatMap(p => p.sessions.map(s => String(s.session))))];
+    $("psTrendWrap").style.display = "block";
+    trendChart($("psTrend"), labels, withSessions.map((p, i) => ({ name: p.player, color: PS_COL[i], values: labels.map(l => p.sessions.find(s => String(s.session) === l)?.ppd ?? null) })), { fmt: v => v.toFixed(1) });
+    $("psTrendLegend").innerHTML = withSessions.map((p, i) => `<span><i style="background:${PS_COL[i]}"></i>${esc(p.player)}</span>`).join("");
+  } else $("psTrendWrap").style.display = "none";
+  const notes = [ps.grouping_note.replace("3-dart groups", "*3-dart avg"), "CEP50 = radius around the player's group centre containing half of the darts (needs 5+ darts).", ...ps.notes];
+  $("psNotes").innerHTML = notes.map(n => `<li>${esc(n)}</li>`).join("");
+}
 </script>
 </body>
 </html>

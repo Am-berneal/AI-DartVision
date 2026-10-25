@@ -22,13 +22,14 @@ from pydantic import BaseModel
 from sklearn.metrics import precision_score
 from sklearn.model_selection import train_test_split
 
+from dartvision import analytics
 from dartvision.board import (LABEL_NAMES, RADII, label_to_score, labels_to_scores,
                               polar, score_region, sector_number)
 from dartvision.coach import (LANGUAGES, TONES, answer_question, coach_feedback, coach_stats,
                               llm_config, player_facts)
 from dartvision.evaluate import full_report
 from dartvision.players import bias_description, player_summary, session_trend
-from dartvision.preprocessing import add_features, feature_matrix, normalise
+from dartvision.preprocessing import add_features, feature_matrix, normalise, validate_coordinates
 
 ROOT = Path(__file__).parent
 MODELS, DATA, RESULTS = ROOT / "models", ROOT / "data", ROOT / "results"
@@ -142,6 +143,8 @@ class BatchRow(BaseModel):
     x: float
     y: float
     player: str | None = None
+    target: str | None = None
+    session: str | int | None = None
 
 
 class BatchIn(BaseModel):
@@ -223,8 +226,18 @@ def batch(b: BatchIn):
                      "score": int(scores[i]), "geometry": geo[i], "agrees": bool(pred[i] == geo[i])})
     rr = work["r"].values
     peak = int(np.argmax(scores))
+    # Per-player summary of the uploaded throws (extra field; the fields above are unchanged)
+    try:
+        summ_df = pd.DataFrame({"x": nx, "y": ny, "label": geo, "score": labels_to_scores(geo),
+                                "player": [r.player or "" for r in b.rows],
+                                "target": [r.target or "" for r in b.rows],
+                                "session": ["" if r.session is None else str(r.session) for r in b.rows]})
+        player_summary_out = analytics.batch_summary(summ_df)
+    except Exception as e:  # noqa: BLE001 - the summary must never break batch scoring
+        player_summary_out = {"players": [], "notes": [f"Summary unavailable: {type(e).__name__}"], "error": True}
     return clean({
         "model": key, "model_name": m["name"], "feature_set": m["feature_set"], "rows": rows,
+        "player_summary": player_summary_out,
         "summary": {
             "total": int(scores.sum()), "n": len(rows), "mean_score": float(scores.mean()),
             "peak_score": int(scores[peak]), "peak_label": pred[peak],
@@ -280,6 +293,54 @@ def player(name: str):
     })
 
 
+@lru_cache(maxsize=1)
+def _roster_profile() -> dict:
+    return analytics.roster_profile(throws_df())
+
+
+@lru_cache(maxsize=16)
+def _player_analytics_cached(name: str) -> dict:
+    return clean(analytics.player_analytics(throws_df(), name, _roster_profile()))
+
+
+@app.get("/api/players/{name}/analytics")
+def player_analytics(name: str):
+    try:
+        return _player_analytics_cached(name)
+    except KeyError:
+        raise HTTPException(404, f"Unknown player {name}")
+
+
+@app.get("/api/compare")
+def compare(a: str, b: str):
+    try:
+        return clean(analytics.compare_players(throws_df(), a, b))
+    except KeyError as e:
+        raise HTTPException(404, f"Unknown player {e.args[0]}")
+
+
+@lru_cache(maxsize=1)
+def real_df() -> pd.DataFrame:
+    p = DATA / "real_throws.csv"
+    if not p.exists():
+        raise HTTPException(404, "No real data yet. Run python prepare_real_data.py and python run_pipeline.py")
+    df, _ = validate_coordinates(pd.read_csv(p))      # same cleaning as the pipeline (drops duplicates / out of range)
+    df["date"] = pd.to_datetime(df["session"].str.slice(3, 13), format="%m_%d_%Y", errors="coerce")
+    return df
+
+
+@lru_cache(maxsize=4)
+def _real_analytics_cached(subset: str) -> dict:
+    return clean(analytics.real_analytics(real_df(), None if subset == "all" else subset))
+
+
+@app.get("/api/real/analytics")
+def real_analytics(subset: str = "all"):
+    if subset not in ("all", "D1", "D2"):
+        raise HTTPException(400, "subset must be all, D1 or D2")
+    return _real_analytics_cached(subset)
+
+
 @app.get("/api/coach/status")
 def coach_status():
     cfg = llm_config()
@@ -296,6 +357,7 @@ def coach(c: CoachIn):
     except KeyError:
         raise HTTPException(404, f"Unknown player {c.player}")
 
+
 @app.get("/api/real")
 def real():
     p = RESULTS / "real_summary.json"
@@ -306,6 +368,7 @@ def real():
     m = metrics_df()
     rows = m[m["eval_set"].isin(["real", "real_trained"])]
     return clean({**summary, "results": rows.to_dict(orient="records")})
+
 
 @app.get("/api/metrics")
 def metrics():

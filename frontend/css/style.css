@@ -334,3 +334,41 @@ tr:hover .tag { transform: scale(1.08); }
   ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
 }
 @media print { * { animation: none !important; transition: none !important; } }
+
+/* =====================================================================
+   ANALYTICS SECTIONS
+   ===================================================================== */
+.section-title { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 38px 0 16px; }
+.section-title h2 { font-size: 26px; letter-spacing: -.6px; }
+.section-title .label { color: var(--red); }
+.empty-note { color: var(--muted); font-size: 14px; padding: 26px 12px; text-align: center; background: var(--sky); border-radius: 12px; }
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.stat { background: var(--sky); border-radius: 14px; padding: 14px; }
+.stat b { display: block; font-size: 26px; letter-spacing: -.5px; margin-top: 4px; }
+.stat small { color: var(--muted); font-size: 12px; }
+.rank-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 13.5px; }
+.rank-list div { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--line); padding-bottom: 5px; }
+.zone-mini { display: flex; height: 10px; width: 120px; border-radius: 99px; overflow: hidden; background: #EEE7DA; }
+.zone-mini i { display: block; height: 100%; }
+.tbl td.win { color: var(--teal); font-weight: 700; }
+.tbl td.lose { color: var(--muted); }
+.note-list { margin: 12px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.chart-note { color: var(--muted); font-size: 12.5px; margin-top: 8px; line-height: 1.5; }
+@media (max-width: 760px) {
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .section-title h2 { font-size: 22px; }
+  .zone-mini { width: 80px; }
+}
+/* let grid columns shrink on small screens (tables/charts scroll inside their own box) */
+.grid > * { min-width: 0; }
+@media (max-width: 760px) {
+  .chip.plain { white-space: normal; }
+  .toggle { flex-wrap: wrap; }
+  .card-head > * { min-width: 0; }
+  .board-wrap svg { overflow: hidden; }
+}
+.g-coach { grid-template-columns: minmax(330px, .85fr) 1.3fr; align-items: start; }
+@media (max-width: 1100px) { .g-coach { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .chip { white-space: normal; } .stat small { word-break: break-word; } }
+.stat { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 760px) { .big { overflow-wrap: anywhere; } .big small { display: inline-block; } }

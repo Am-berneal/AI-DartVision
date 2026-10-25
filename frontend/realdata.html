@@ -83,10 +83,50 @@
       <div class="card sky" style="margin-top:16px;padding:12px 14px;font-size:13px;line-height:1.5;box-shadow:none" id="cite"></div>
     </div>
   </div>
+
+  <!-- ===================== DEEPER ANALYTICS ===================== -->
+  <div class="section-title"><span class="label">Deeper analytics</span><h2>Real visits and patterns</h2><span class="muted" style="font-size:13px" id="raNote"></span></div>
+
+  <div class="grid g-wide" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head"><div><h2>3-dart visit totals</h2><div class="muted" style="font-size:13px;margin-top:4px">Recorded visits (up to 3 darts each); 100+ highlighted</div></div></div>
+      <div id="rvHist"></div>
+      <div class="stat-grid" style="margin-top:14px" id="rvStats"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Real darts by number</h2><div class="muted" style="font-size:13px;margin-top:4px">Bar length = darts in that number</div></div></div>
+      <div class="board-wrap" style="max-width:360px"><svg id="rSectors"></svg></div>
+      <div class="chart-note" id="rSectorNote"></div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Session trends</h2><div class="muted" style="font-size:13px;margin-top:4px" id="rTrendSub"></div></div>
+        <div class="toggle" id="rTrendT"><button data-v="visit_avg" class="on">Visit average</button><button data-v="treble_rate">Treble rate</button><button data-v="double_rate">Double rate</button></div>
+      </div>
+      <div id="rTrend"></div>
+      <div class="chart-note" id="rTrendNote"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Camera setup: D1 vs D2</h2><div class="muted" style="font-size:13px;margin-top:4px">Share of darts in each ring (all sessions of each setup)</div></div></div>
+      <div id="rSub"></div>
+      <div class="legend" style="justify-content:flex-start;margin-top:6px" id="rSubLegend"></div>
+      <div class="table-scroll" style="margin-top:12px"><table class="tbl" id="rSubTbl"></table></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:22px">
+    <div class="card-head"><div><h2>Dart 1, 2 and 3 in a visit</h2><div class="muted" style="font-size:13px;margin-top:4px">Same visits, split by the order the darts were thrown</div></div></div>
+    <div class="table-scroll"><table class="tbl" id="rDart"></table></div>
+    <div class="chart-note" id="rDartNote"></div>
+  </div>
 </main>
 
 <script src="js/board.js"></script>
 <script src="js/common.js"></script>
+<script src="js/charts.js"></script>
 <script>
 let RD = null, subset = "all", feat = "engineered", trendMode = "avg";
 const COLOR = l => l === "MISS" ? "#fff" : (["IB", "OB"].includes(l) ? "#F2C14E" : ({ T: "#E0533F", D: "#2E6F73" }[l[0]] || "#8FA3B8"));
@@ -171,7 +211,7 @@ function bindToggle(id, fn) {
     document.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle("on", x === b)); fn(b.dataset.v);
   });
 }
-bindToggle("subsetT", v => { subset = v; renderBoards(); renderKpis(); renderTrend(); });
+bindToggle("subsetT", v => { subset = v; renderBoards(); renderKpis(); renderTrend(); loadRealAnalytics(v); });
 bindToggle("featT", v => { feat = v; renderCompare(); });
 bindToggle("trendT", v => { trendMode = v; renderTrend(); });
 
@@ -179,8 +219,79 @@ initShell("real").then(async () => {
   try {
     RD = await api("/api/real");
     renderKpis(); renderBoards(); renderCompare(); renderFindings(); renderTrend(); renderDartOrder();
+    loadRealAnalytics(subset);
   } catch (e) { showError(esc(e.message)); }
 }).catch(() => {});
+</script>
+
+<script>
+/* ===================== DEEPER ANALYTICS (real data) ===================== */
+let RA = null, rTrendKey = "visit_avg";
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const shortDate = d => d ? `${MON.at(+d.slice(5, 7) - 1)} ${+d.slice(8, 10)} '${d.slice(2, 4)}` : "?";
+function rsafe(fn, el) { try { fn(); } catch (e) { console.error(e); noData($(el), "Could not draw this chart."); } }
+
+async function loadRealAnalytics(sub) {
+  const boxes = ["rvHist", "rTrend", "rSub", "rDart"];
+  boxes.forEach(b => $(b).innerHTML = '<div class="empty-note">Loading…</div>');
+  try { RA = await api("/api/real/analytics?subset=" + encodeURIComponent(sub || "all")); }
+  catch (e) { boxes.forEach(b => noData($(b), "Real-data analytics unavailable: " + e.message)); return; }
+  if (!RA.darts) { boxes.forEach(b => noData($(b), "No real throws for this selection.")); return; }
+  $("raNote").textContent = `${RA.darts.toLocaleString()} darts · ${RA.visits.visits.toLocaleString()} visits · ${RA.sessions.length} sessions${sub && sub !== "all" ? " · " + sub : ""}`;
+  rsafe(renderVisits, "rvHist"); rsafe(renderRealSectors, "rSectorNote"); rsafe(renderRealTrend, "rTrend");
+  rsafe(renderSubsets, "rSub"); rsafe(renderDartDetail, "rDart");
+}
+
+function renderVisits() {
+  const v = RA.visits;
+  histogram($("rvHist"), v.histogram, { highlightFrom: 100, xLabel: "points per visit" });
+  const tiles = [["Visits", v.visits.toLocaleString(), "recorded"], ["Average", v.mean, `± ${v.std} std`], ["Best visit", v.best, "points"],
+                 ["60+", v.count_60.toLocaleString(), pct(v.count_60 / v.visits, 1)], ["100+", v.count_100, pct(v.count_100 / v.visits, 1)], ["140+ / 180", `${v.count_140} / ${v.count_180}`, "visits"]];
+  $("rvStats").innerHTML = tiles.map(([l, b, sm]) => `<div class="stat"><span class="label">${esc(l)}</span><b>${esc(String(b))}</b><small>${esc(sm)}</small></div>`).join("");
+}
+
+function renderRealSectors() {
+  sectorChart($("rSectors"), RA.sectors);
+  const top = [...RA.sectors.sectors].sort((a, b) => b.count - a.count).slice(0, 3);
+  $("rSectorNote").textContent = "Most darts: " + top.map(t => `${t.number} (${pct(t.count / RA.sectors.darts, 1)})`).join(", ") + `. Bull ${RA.sectors.bull.toLocaleString()}, miss ${RA.sectors.miss.toLocaleString()}.`;
+}
+
+function renderRealTrend() {
+  const s = RA.sessions, key = rTrendKey, isRate = key !== "visit_avg";
+  const vals = s.map(r => r[key] === null ? null : (isRate ? r[key] * 100 : r[key]));
+  const ok = vals.filter(v => v !== null), mean = ok.reduce((a, b) => a + b, 0) / (ok.length || 1);
+  const name = { visit_avg: "Visit average (pts)", treble_rate: "Treble rate (%)", double_rate: "Double rate (%)" }[key];
+  $("rTrendSub").textContent = `${name} per dated session`;
+  trendChart($("rTrend"), s.map(r => shortDate(r.date)), [{ name, color: key === "visit_avg" ? "#B83A2B" : "#2E6F73", values: vals }],
+    { fmt: v => isRate ? v.toFixed(1) + "%" : v.toFixed(1), ref: { value: mean, label: `session mean ${isRate ? mean.toFixed(1) + "%" : mean.toFixed(1)}` } });
+  const best = s.reduce((a, r, i) => (vals[i] !== null && (a === null || vals[i] > vals[a])) ? i : a, null);
+  $("rTrendNote").textContent = best === null ? "" : `Highest: ${shortDate(s[best].date)} (${isRate ? vals[best].toFixed(1) + "%" : vals[best].toFixed(1)}, ${s[best].visits} visits).` +
+    (key === "visit_avg" && RA.session_ppd_slope !== null ? ` Linear trend across sessions: ${RA.session_ppd_slope > 0 ? "+" : ""}${RA.session_ppd_slope} pts/dart per session.` : "");
+}
+
+function renderSubsets() {
+  const sb = RA.subsets;
+  if (!sb.length) return noData($("rSub"));
+  groupedBars($("rSub"), ZONE_KEYS.map(k => ZONE_NAME[k]), sb.map((x, i) => ({ name: x.subset, color: i === 0 ? "#2E6F73" : "#D4A64A", values: ZONE_KEYS.map(k => x[k + "_rate"] * 100) })),
+    { fmt: v => v.toFixed(1), axisFmt: v => v.toFixed(0) + "%" });
+  $("rSubLegend").innerHTML = sb.map((x, i) => `<span><i style="background:${i === 0 ? "#2E6F73" : "#D4A64A"}"></i>${esc(x.subset)} ${x.subset === "D1" ? "(face-on)" : "(angled)"}</span>`).join("");
+  $("rSubTbl").innerHTML = `<thead><tr><th>Setup</th><th class="num">Darts</th><th class="num">Sessions</th><th class="num">Pts/dart</th><th class="num">Visit avg</th></tr></thead><tbody>` +
+    sb.map(x => `<tr><td><b>${esc(x.subset)}</b></td><td class="num">${x.darts.toLocaleString()}</td><td class="num">${x.sessions}</td><td class="num">${fmt(x.ppd, 2)}</td><td class="num">${fmt(x.visit_avg, 1)}</td></tr>`).join("") + "</tbody>";
+}
+
+function renderDartDetail() {
+  const d = RA.dart_order;
+  if (!d.length) return noData($("rDart"));
+  $("rDart").innerHTML = `<thead><tr><th>Dart</th><th class="num">Darts</th><th class="num">Pts/dart</th><th class="num">Treble rate</th><th class="num">Miss rate</th></tr></thead><tbody>` +
+    d.map(x => `<tr><td><b>Dart ${x.dart}</b></td><td class="num">${x.darts.toLocaleString()}</td><td class="num">${fmt(x.ppd, 2)}</td><td class="num">${pct(x.treble_rate, 1)}</td><td class="num">${pct(x.miss_rate, 1)}</td></tr>`).join("") + "</tbody>";
+  const f = d[0], l = d.at(-1);
+  $("rDartNote").textContent = `From dart ${f.dart} to dart ${l.dart}: ${fmt(f.ppd, 2)} → ${fmt(l.ppd, 2)} pts/dart, miss rate ${pct(f.miss_rate, 1)} → ${pct(l.miss_rate, 1)}. Fewer darts are recorded as dart 3 because some visits have fewer than three darts labelled.`;
+}
+
+document.querySelectorAll("#rTrendT button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#rTrendT button").forEach(x => x.classList.toggle("on", x === b));
+  rTrendKey = b.dataset.v; if (RA) rsafe(renderRealTrend, "rTrend");
+});
 </script>
 </body>
 </html>
