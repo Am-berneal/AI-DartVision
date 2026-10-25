@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from sklearn.metrics import precision_score
 from sklearn.model_selection import train_test_split
 
-from dartvision import analytics
+from dartvision import analytics, sports
 from dartvision.board import (LABEL_NAMES, RADII, label_to_score, labels_to_scores,
                               polar, score_region, sector_number)
 from dartvision.coach import (LANGUAGES, TONES, answer_question, coach_feedback, coach_stats,
@@ -340,6 +340,101 @@ def real_analytics(subset: str = "all"):
         raise HTTPException(400, "subset must be all, D1 or D2")
     return _real_analytics_cached(subset)
 
+# ------------------------------------------------------------------ multi-sport (archery + shooting)
+SPORT_MODELS = MODELS / "sports"
+
+
+class Shot(BaseModel):
+    x: float
+    y: float
+
+
+class SportScoreIn(BaseModel):
+    shots: list[Shot]
+    model: str | None = None          # e.g. "random_forest_engineered"; None = rules only
+
+
+class SportSimIn(BaseModel):
+    n: int = 30
+    sigma_mrad: float = 1.0
+    bias_x_mm: float = 0.0
+    bias_y_mm: float = 0.0
+    seed: int | None = None
+    model: str | None = None
+
+
+def _profile(key: str):
+    try:
+        return sports.get_profile(key)
+    except KeyError:
+        raise HTTPException(404, f"Unknown target '{key}'. Options: {', '.join(sports.PROFILES)}")
+
+
+@lru_cache(maxsize=48)
+def _sport_model(target: str, key: str) -> dict:
+    path = SPORT_MODELS / f"{target}__{key}.joblib"
+    if not path.exists():
+        raise HTTPException(404, f"Model '{key}' for {target} not found. Run: python train_sports.py")
+    return joblib.load(path)
+
+
+def _scored_payload(p, scored: pd.DataFrame, model_key: str | None) -> dict:
+    out = scored.copy()
+    model_name = None
+    if model_key:
+        m = _sport_model(p.key, model_key)
+        nx, ny = sports.normalised(p, out["x"], out["y"])
+        X = add_features(pd.DataFrame({"x": nx, "y": ny}))[["x", "y"] if m["feature_set"] == "raw" else ["x", "y", "r", "sin_t", "cos_t"]]
+        out["predicted"] = m["model"].predict(X).astype(str)
+        out["agrees"] = out["predicted"] == out["label"]
+        model_name = f"{m['name']} ({m['feature_set']})"
+    out["line_mm"] = sports.boundary_distances(p, out["d_mm"])
+    shots = out.round({"x": 2, "y": 2, "d_mm": 2, "line_mm": 2}).to_dict(orient="records")
+    return clean({"target": p.key, "model": model_name, "shots": shots, "stats": sports.group_stats(p, scored),
+                  "agreement": float(out["agrees"].mean()) if model_key and len(out) else None})
+
+
+@app.get("/api/sports")
+def sports_index():
+    trained = sorted({f.stem.split("__", 1)[1] for f in SPORT_MODELS.glob("*.joblib")}) if SPORT_MODELS.exists() else []
+    return {"targets": [sports.profile_json(p) for p in sports.PROFILES.values()],
+            "difficulty": sports.difficulty_table(), "models": trained}
+
+
+@app.post("/api/sports/{target}/score")
+def sports_score(target: str, body: SportScoreIn):
+    p = _profile(target)
+    if not body.shots:
+        raise HTTPException(400, "No shots")
+    if len(body.shots) > 5000:
+        raise HTTPException(400, "At most 5000 shots per request")
+    scored = sports.score_shots(p, [s.x for s in body.shots], [s.y for s in body.shots])
+    return _scored_payload(p, scored, body.model)
+
+
+@app.post("/api/sports/{target}/simulate")
+def sports_simulate(target: str, body: SportSimIn):
+    p = _profile(target)
+    if not 1 <= body.n <= 600:
+        raise HTTPException(400, "n must be between 1 and 600")
+    if not 0.01 <= body.sigma_mrad <= 20:
+        raise HTTPException(400, "sigma_mrad must be between 0.01 and 20")
+    scored = sports.simulate(p, body.n, body.sigma_mrad, body.bias_x_mm, body.bias_y_mm, body.seed)
+    return {**_scored_payload(p, scored, body.model), "simulated": True}
+
+
+@lru_cache(maxsize=1)
+def _sports_metrics() -> pd.DataFrame | None:
+    path = RESULTS / "sports_metrics.csv"
+    return pd.read_csv(path) if path.exists() else None
+
+
+@app.get("/api/sports/metrics")
+def sports_metrics():
+    m = _sports_metrics()
+    if m is None:
+        raise HTTPException(404, "results/sports_metrics.csv missing. Run: python train_sports.py")
+    return clean({"rows": m.to_dict(orient="records")})
 
 @app.get("/api/coach/status")
 def coach_status():

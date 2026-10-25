@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multi-Sport · AI DartVision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<aside class="sidebar"></aside>
+<main class="main">
+  <header class="topbar">
+    <span class="chip sky" id="apiChip"><span class="dot"></span>Connecting</span>
+    <span class="chip plain" id="srcChip"></span>
+    <span class="chip gold" id="simChip" style="display:none">Simulated shots</span>
+  </header>
+  <div class="err" id="err"></div>
+
+  <section class="page-head">
+    <div>
+      <div class="eyebrow">07 / Multi-sport <span class="sub">· Archery and shooting</span></div>
+      <h1>Same engine, <em>new targets.</em></h1>
+      <p class="lede">The DartVision pipeline applied to ring targets: World Archery 10-zone faces and ISSF 10 m air rifle and air pistol. Projectile size is part of the rules: an arrow or pellet touching a line scores the higher ring.</p>
+    </div>
+    <div class="toggle" id="targetT"></div>
+  </section>
+
+  <div class="grid g4" style="margin-bottom:22px">
+    <div class="tile dark"><div class="label">Score</div><div class="big" id="kTotal">–</div><div class="mono" style="font-size:12px;color:#C9D0DB" id="kTotalS"></div></div>
+    <div class="tile"><div class="label">Average per shot</div><div class="big red-t" id="kAvg">–</div><div class="mono muted" style="font-size:12px" id="kAvgS"></div></div>
+    <div class="tile"><div class="label">Group size (CEP50)</div><div class="big" id="kCep">–</div><div class="mono muted" style="font-size:12px" id="kCepS"></div></div>
+    <div class="tile"><div class="label">Group centre offset</div><div class="big" id="kOff">–</div><div class="mono muted" style="font-size:12px" id="kOffS"></div></div>
+  </div>
+
+  <div class="grid g-wide" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head">
+        <div><h2 id="tgtTitle">Target</h2><div class="muted" style="font-size:13px;margin-top:4px">Click the target to add a shot. Circles are drawn at the real projectile size.</div></div>
+        <div class="row no-print"><button class="btn btn-ghost" id="undoBtn">↶ Undo</button><button class="btn btn-outline" id="clearBtn">Clear</button></div>
+      </div>
+      <div class="board-wrap" style="max-width:560px"><svg id="target" style="cursor:crosshair;touch-action:manipulation"></svg></div>
+      <div class="legend" style="justify-content:flex-start;margin-top:12px">
+        <span><i class="c" style="background:#8FD3D6;border:1px solid #1B2536"></i>Shot (model agrees)</span>
+        <span><i class="c" style="background:#E0533F"></i>Model disagrees</span>
+        <span><i style="background:transparent;border:2px dashed #2E6F73"></i>Group CEP50</span>
+      </div>
+      <div class="card sky" style="margin-top:14px;padding:12px 16px;font-size:14px;line-height:1.55;box-shadow:none" id="correction">Add at least 5 shots to see the group analysis.</div>
+    </div>
+
+    <div class="stack" style="gap:18px">
+      <div class="card">
+        <div class="card-head"><h2>Classifier</h2><span class="label">same 5 models as darts</span></div>
+        <select class="plain" id="modelSel2" style="width:100%"></select>
+        <div class="muted" style="font-size:12.5px;margin-top:8px" id="agreeNote">Rules only: scores come straight from the ring geometry.</div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Simulated shooter</h2><span class="chip gold">simulated</span></div>
+        <div class="stack" style="gap:12px;font-size:13.5px">
+          <label>Spread per axis: <b class="mono" id="sigV"></b>
+            <input type="range" id="sig" min="0.1" max="4" step="0.05" value="0.6" style="width:100%"></label>
+          <div class="grid g2" style="gap:10px">
+            <label>Bias right (mm)<div class="input"><input id="bx" type="number" step="1" value="0"></div></label>
+            <label>Bias up (mm)<div class="input"><input id="by" type="number" step="1" value="0"></div></label>
+          </div>
+          <label>Shots<div class="input"><input id="nShots" type="number" min="1" max="600" value="60"></div></label>
+          <button class="btn btn-primary" id="simBtn">⟳ Simulate shots</button>
+          <div class="muted" style="font-size:12px;line-height:1.5">Spread is set in milliradians, so the same shooter can be compared across distances: 1 mrad = 1 mm per metre of distance (<span id="sigMm"></span>).</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Import shots</h2></div>
+        <div class="muted" style="font-size:13px;margin-bottom:10px">CSV with columns <code>x</code>, <code>y</code> in millimetres from the target centre (x right, y up), e.g. exported from an electronic scoring target.</div>
+        <label class="btn btn-outline" style="cursor:pointer">Choose CSV<input type="file" id="csv" accept=".csv" hidden></label>
+        <span class="muted" style="font-size:12.5px;margin-left:8px" id="csvNote"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:22px">
+    <div class="card-head">
+      <div><h2>Shot list</h2><div class="muted" style="font-size:13px;margin-top:4px" id="shotSub"></div></div>
+      <button class="btn btn-outline no-print" id="dlBtn">⇩ Download CSV</button>
+    </div>
+    <div class="table-scroll" style="max-height:420px"><table class="tbl head-navy" id="shotTbl"></table></div>
+  </div>
+
+  <div class="grid g2" style="margin-bottom:22px">
+    <div class="card">
+      <div class="card-head"><div><div class="label red">Held-out test set</div><h2 style="margin-top:6px">Model accuracy on this target</h2></div></div>
+      <div id="benchChart"></div>
+      <div class="legend" style="justify-content:flex-start;margin-top:6px"><span><i style="background:#9AA4B5"></i>Raw (x, y)</span><span><i style="background:#2E6F73"></i>Engineered (x, y, r, sin θ, cos θ)</span></div>
+      <div class="table-scroll" style="margin-top:12px"><table class="tbl" id="benchTbl"></table></div>
+      <div class="chart-note" id="benchNote"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><div class="label red">Cross-sport</div><h2 style="margin-top:6px">How small is the top zone?</h2></div></div>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">Radius of the highest-scoring zone divided by the shooting distance, in milliradians. Smaller = harder. Computed from the target dimensions only.</div>
+      <div class="stack" style="gap:9px" id="diff"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:22px">
+    <div class="card-head"><h2>Target specification</h2><span class="label">edit in dartvision/sports.py</span></div>
+    <div class="kv" id="spec"></div>
+    <div class="chart-note" id="specNote"></div>
+  </div>
+</main>
+
+<script src="js/board.js"></script>
+<script src="js/common.js"></script>
+<script src="js/charts.js"></script>
+<script>
+let INFO = null, T = null, SHOTS = [], RES = null, METRICS = null, simulated = false;
+const SPORT_COL = { archery: "#B83A2B", shooting: "#2E6F73", darts: "#D4A64A", biathlon: "#6C7FA8" };
+
+function drawTarget() {
+  const svg = $("target"), L = T.scoring_limit_mm * 1.1;
+  svg.setAttribute("viewBox", `${-L} ${-L} ${2 * L} ${2 * L}`);
+  svg.innerHTML = "";
+  svgEl("rect", { x: -L, y: -L, width: 2 * L, height: 2 * L, fill: "#EFE8DA", rx: L * .03 }, svg);
+  const rings = [...T.rings].sort((a, b) => b.radius_mm - a.radius_mm);
+  rings.forEach(r => {
+    const dark = ["#1E2433", "#3D8FD1"].includes(r.colour);
+    svgEl("circle", { r: r.radius_mm, fill: r.colour, stroke: dark ? "#C9D0DB" : "#1E2433", "stroke-width": L * .0025 }, svg);
+  });
+  if (T.x_radius_mm) svgEl("circle", { r: T.x_radius_mm, fill: "none", stroke: T.sport === "archery" ? "#1E2433" : "#C9D0DB", "stroke-width": L * .002, "stroke-dasharray": `${L * .008} ${L * .006}` }, svg);
+  rings.forEach(r => {                           // ring numbers along the right axis
+    if (r.value === 10) return;
+    const mid = r.radius_mm - T.ring_width_mm / 2, dark = ["#1E2433", "#3D8FD1"].includes(r.colour);
+    const t = svgEl("text", { x: mid, y: 0, "text-anchor": "middle", "dominant-baseline": "central", "font-size": Math.min(T.ring_width_mm * .55, L * .05), fill: dark ? "#E9EDF3" : "#1E2433", "font-family": "IBM Plex Mono, monospace" }, svg);
+    t.textContent = r.value;
+  });
+  const g = RES && RES.stats;
+  if (g && g.cep50_mm !== undefined) {
+    svgEl("circle", { cx: g.centre_x_mm, cy: -g.centre_y_mm, r: g.cep50_mm, fill: "none", stroke: "#2E6F73", "stroke-width": L * .005, "stroke-dasharray": `${L * .015} ${L * .01}` }, svg);
+    svgEl("circle", { cx: g.centre_x_mm, cy: -g.centre_y_mm, r: L * .008, fill: "#2E6F73" }, svg);
+  }
+  const shots = RES ? RES.shots : [];
+  const rr = Math.max(T.projectile_mm / 2, L * .009);
+  shots.forEach((s, i) => {
+    const bad = s.agrees === false;
+    const c = svgEl("circle", { cx: s.x, cy: -s.y, r: rr, fill: bad ? "#E0533F" : "#8FD3D6", "fill-opacity": .9, stroke: "#1B2536", "stroke-width": rr * .18 }, svg);
+    const tt = svgEl("title", {}, c);
+    tt.textContent = `#${i + 1}: ${s.label}${s.decimal !== null ? " (" + s.decimal.toFixed(1) + ")" : ""}${s.predicted ? " · model " + s.predicted : ""}`;
+  });
+}
+
+function svgPoint(evt) {
+  const svg = $("target"), pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+  return { x: +p.x.toFixed(2), y: +(-p.y).toFixed(2) };
+}
+
+async function rescore() {
+  const model = $("modelSel2").value || null;
+  if (!SHOTS.length) { RES = null; render(); return; }
+  try { RES = await api(`/api/sports/${T.key}/score`, { shots: SHOTS, model }); }
+  catch (e) { showError("Scoring failed: " + esc(e.message)); return; }
+  render();
+}
+
+function render() {
+  drawTarget();
+  $("simChip").style.display = simulated && SHOTS.length ? "" : "none";
+  const g = RES ? RES.stats : null;
+  $("kTotal").innerHTML = g ? `${T.decimal ? fmt(g.total, 1) : g.total_integer}<small>/ ${T.decimal ? fmt(g.max_possible, 1) : g.max_possible}</small>` : "–";
+  $("kTotalS").textContent = g ? `${g.shots} shots · ${g.tens} tens${T.x_radius_mm ? ` (${g.x_count} ${T.sport === "archery" ? "X" : "inner ten"})` : ""} · ${g.misses} misses` : "Add or simulate shots";
+  $("kAvg").textContent = g ? fmt(g.average, 2) : "–";
+  $("kAvgS").textContent = g ? (T.decimal ? `integer total ${g.total_integer}` : "points per arrow") : "";
+  $("kCep").innerHTML = g && g.cep50_mm !== undefined ? `${fmt(g.cep50_mm, 1)}<small>mm</small>` : "–";
+  $("kCepS").textContent = g && g.cep50_mrad !== undefined ? `${fmt(g.cep50_mrad, 3)} mrad · CEP90 ${fmt(g.cep90_mm, 1)} mm` : "needs 5+ shots";
+  $("kOff").innerHTML = g && g.offset_mm !== undefined ? `${fmt(g.offset_mm, 1)}<small>mm</small>` : "–";
+  $("kOffS").textContent = g && g.offset_mm !== undefined ? `(${fmt(g.centre_x_mm, 1)}, ${fmt(g.centre_y_mm, 1)}) mm` : "";
+  $("correction").innerHTML = g && g.correction ? `<b>Group analysis:</b> ${esc(g.correction)} Half of the shots are within ${fmt(g.cep50_mm, 1)} mm of the group centre (${fmt(g.cep50_mrad, 3)} mrad at ${T.distance_m} m).` : "Add at least 5 shots to see the group analysis.";
+  $("agreeNote").textContent = RES && RES.model ? `${RES.model}: agrees with the rules on ${pct(RES.agreement, 0)} of these shots.` : "Rules only: scores come straight from the ring geometry.";
+  renderTable();
+}
+
+function renderTable() {
+  const s = RES ? RES.shots : [], hasModel = RES && RES.model;
+  $("shotSub").textContent = s.length ? `${s.length} shots · "line" = distance from the shot centre to the nearest scoring line (incl. projectile size)` : "No shots yet";
+  $("shotTbl").innerHTML = `<thead><tr><th>#</th><th class="num">x mm</th><th class="num">y mm</th><th class="num">Distance</th><th class="num">Line</th><th>Zone</th><th class="num">${T.decimal ? "Decimal" : "Points"}</th>${hasModel ? "<th>Model</th><th>Agrees</th>" : ""}</tr></thead><tbody>` +
+    (s.length ? s.map((r, i) => `<tr><td class="mono">${i + 1}</td><td class="num">${fmt(r.x, 1)}</td><td class="num">${fmt(r.y, 1)}</td><td class="num">${fmt(r.d_mm, 1)}</td>
+      <td class="num">${fmt(r.line_mm, 2)}</td><td><span class="tag ${r.label === "X" || r.label === "10" ? "t" : (r.label === "M" ? "bad" : "")}">${esc(r.label)}</span></td>
+      <td class="num">${T.decimal ? fmt(r.decimal, 1) : r.value}</td>
+      ${hasModel ? `<td class="mono">${esc(r.predicted)}</td><td><span class="tag ${r.agrees ? "ok" : "bad"}">${r.agrees ? "● Agree" : "✗ Differs"}</span></td>` : ""}</tr>`).join("")
+      : `<tr><td colspan="9" class="empty">Click the target, simulate, or import a CSV.</td></tr>`) + "</tbody>";
+}
+
+function renderBench() {
+  if (!METRICS) return noData($("benchChart"), "Model results missing. Run python train_sports.py");
+  const rows = METRICS.filter(r => r.target === T.key);
+  if (!rows.length) return noData($("benchChart"), "No results for this target yet.");
+  const names = ["Logistic Regression", "Decision Tree", "Random Forest", "KNN", "SVM"];
+  const get = (n, fs) => rows.find(r => r.model === n && r.feature_set === fs);
+  groupedBars($("benchChart"), ["LogReg", "Tree", "Forest", "KNN", "SVM"], [
+    { name: "Raw", color: "#9AA4B5", values: names.map(n => get(n, "raw") ? get(n, "raw").accuracy * 100 : null) },
+    { name: "Engineered", color: "#2E6F73", values: names.map(n => get(n, "engineered") ? get(n, "engineered").accuracy * 100 : null) }],
+    { fmt: v => v.toFixed(0), axisFmt: v => v.toFixed(0) + "%", max: 100 });
+  $("benchTbl").innerHTML = `<thead><tr><th>Model</th><th>Features</th><th class="num">Accuracy</th><th class="num">Macro F1</th><th class="num">Near-line acc.</th></tr></thead><tbody>` +
+    [...rows].sort((a, b) => b.macro_f1 - a.macro_f1).map(r => `<tr><td>${esc(r.model)}</td><td class="mono">${r.feature_set}</td><td class="num">${pct(r.accuracy, 1)}</td><td class="num">${fmt(r.macro_f1, 3)}</td><td class="num">${pct(r.boundary_accuracy, 1)}</td></tr>`).join("") + "</tbody>";
+  const lr = get("Logistic Regression", "raw"), lre = get("Logistic Regression", "engineered");
+  $("benchNote").textContent = `${rows[0].n_test} test shots, ${rows[0].n_boundary} of them within 10% of a ring width of a scoring line.` +
+    (lr && lre ? ` Rings are circles, so a linear model on raw (x, y) cannot separate them (${pct(lr.accuracy, 0)}); adding the radius r lifts it to ${pct(lre.accuracy, 0)}.` : "");
+}
+
+function renderDiff() {
+  const rows = INFO.difficulty, max = Math.max(...rows.map(r => r.mrad));
+  $("diff").innerHTML = rows.map(r => `<div title="${esc(r.note)}">
+    <div class="row" style="justify-content:space-between;font-size:13px;gap:10px"><span>${esc(r.name)}</span><span class="mono">${r.mrad.toFixed(2)} mrad</span></div>
+    <div class="bar" style="margin-top:4px"><i style="width:${r.mrad / max * 100}%;background:${SPORT_COL[r.sport] || "#6C7FA8"}"></i></div>
+    <div class="muted mono" style="font-size:11px;margin-top:2px">${r.radius_mm} mm at ${r.distance_m} m · ${esc(r.note)}</div></div>`).join("");
+}
+
+function renderSpec() {
+  const items = [["Distance", `${T.distance_m} m`], ["Ring width", `${T.ring_width_mm} mm`], ["10 ring", `⌀ ${fmt(T.ten_radius_mm * 2, 2)} mm`],
+    [T.sport === "archery" ? "X (inner 10)" : "Inner ten", T.x_radius_mm ? `⌀ ${fmt(T.x_radius_mm * 2, 1)} mm` : "–"],
+    ["Ring 1 (outer)", `⌀ ${fmt(T.outer_mm * 2, 1)} mm`], [T.sport === "archery" ? "Arrow" : "Pellet", `⌀ ${T.projectile_mm} mm`],
+    ["Scoring", T.decimal ? "Decimal, max 10.9" : "Integer, X = 10"], ["Labels", T.labels.join(" ")]];
+  $("spec").innerHTML = items.map(([l, v]) => `<div><span class="label">${l}</span><b style="font-size:15px">${esc(v)}</b></div>`).join("");
+  $("specNote").textContent = `${T.source}. ${T.notes}${T.sport === "archery" ? " Arrow diameter is an assumption (typical outdoor recurve shaft); set ARROW_MM for your arrows." : ""}`;
+  $("srcChip").textContent = T.name;
+}
+
+function selectTarget(key) {
+  T = INFO.targets.find(t => t.key === key);
+  store.set("sport_target", key);
+  document.querySelectorAll("#targetT button").forEach(b => b.classList.toggle("on", b.dataset.k === key));
+  $("tgtTitle").textContent = T.name;
+  SHOTS = []; RES = null; simulated = false;
+  updateSigma(); renderSpec(); renderBench(); render();
+}
+
+function updateSigma() {
+  const v = +$("sig").value;
+  $("sigV").textContent = `${v.toFixed(2)} mrad`;
+  if (T) $("sigMm").textContent = `${v.toFixed(2)} mrad = ${(v * T.distance_m).toFixed(1)} mm at ${T.distance_m} m`;
+}
+
+$("target").addEventListener("click", e => { SHOTS.push(svgPoint(e)); if (SHOTS.length > 5000) SHOTS.shift(); rescore(); });
+$("undoBtn").onclick = () => { SHOTS.pop(); rescore(); };
+$("clearBtn").onclick = () => { SHOTS = []; simulated = false; rescore(); };
+$("modelSel2").onchange = rescore;
+$("sig").oninput = updateSigma;
+$("simBtn").onclick = async () => {
+  const n = Math.max(1, Math.min(600, parseInt($("nShots").value) || 60));
+  try {
+    const r = await api(`/api/sports/${T.key}/simulate`, { n, sigma_mrad: +$("sig").value, bias_x_mm: +$("bx").value || 0, bias_y_mm: +$("by").value || 0, model: $("modelSel2").value || null });
+    SHOTS = r.shots.map(s => ({ x: s.x, y: s.y })); RES = r; simulated = true; render();
+  } catch (e) { showError("Simulation failed: " + esc(e.message)); }
+};
+$("csv").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const lines = rd.result.trim().split(/\r?\n/).filter(l => l.trim());
+      const head = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/^"|"$/g, ""));
+      const xi = head.indexOf("x"), yi = head.indexOf("y");
+      if (xi < 0 || yi < 0) throw new Error("CSV needs columns named x and y");
+      const pts = [], bad = [];
+      lines.slice(1).forEach((l, i) => { const c = l.split(","), x = parseFloat(c[xi]), y = parseFloat(c[yi]); Number.isFinite(x) && Number.isFinite(y) ? pts.push({ x, y }) : bad.push(i + 2); });
+      if (!pts.length) throw new Error("No valid rows");
+      SHOTS = pts.slice(0, 5000); simulated = false;
+      $("csvNote").textContent = `${f.name}: ${SHOTS.length} shots${bad.length ? `, skipped rows ${bad.slice(0, 8).join(", ")}${bad.length > 8 ? "…" : ""}` : ""}`;
+      rescore();
+    } catch (err) { $("csvNote").textContent = "✗ " + err.message; }
+  };
+  rd.readAsText(f); e.target.value = "";
+};
+$("dlBtn").onclick = () => {
+  if (!RES) return;
+  const h = "n,x_mm,y_mm,distance_mm,zone,points,decimal" + (RES.model ? ",model_zone,agrees" : "");
+  downloadText(`${T.key}_shots.csv`, [h, ...RES.shots.map((s, i) => [i + 1, s.x, s.y, s.d_mm, s.label, s.value, s.decimal ?? "", ...(RES.model ? [s.predicted, s.agrees] : [])].join(","))].join("\n"));
+};
+
+initShell("sports").catch(() => {}).finally(async () => {
+  try {
+    INFO = await api("/api/sports");
+    try { METRICS = (await api("/api/sports/metrics")).rows; } catch { METRICS = null; }
+    const label = k => ({ archery_122: "Archery 122", archery_40: "Archery 40", air_rifle: "Air rifle", air_pistol: "Air pistol" }[k] || k);
+    $("targetT").innerHTML = INFO.targets.map(t => `<button data-k="${t.key}">${label(t.key)}</button>`).join("");
+    document.querySelectorAll("#targetT button").forEach(b => b.onclick = () => selectTarget(b.dataset.k));
+    const nice = k => k.replace(/_(raw|engineered)$/, "").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()).replace("Knn", "KNN").replace("Svm", "SVM") + (k.endsWith("_raw") ? " (raw)" : " (engineered)");
+    $("modelSel2").innerHTML = `<option value="">Rules only (geometry)</option>` + INFO.models.map(k => `<option value="${k}">${nice(k)}</option>`).join("");
+    if (!INFO.models.length) $("agreeNote").textContent = "No trained models yet. Run python train_sports.py";
+    renderDiff();
+    const saved = store.get("sport_target", INFO.targets[0].key);
+    selectTarget(INFO.targets.find(t => t.key === saved) ? saved : INFO.targets[0].key);
+  } catch (e) { showError("Could not load the multi-sport module: " + esc(e.message)); }
+});
+</script>
+</body>
+</html>

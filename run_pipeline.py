@@ -198,3 +198,5 @@ if __name__ == "__main__":
     ap.add_argument("--test-size", type=float, default=0.2)
     a = ap.parse_args()
     main(a.n_per_class, a.seed, a.test_size)
+    from train_sports import train_all          # archery + shooting targets (Multi-Sport page)
+    train_all(seed=a.seed, log=log)

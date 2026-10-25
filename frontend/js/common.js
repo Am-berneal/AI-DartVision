@@ -1,6 +1,7 @@
 /* Shared layout, settings and API helpers for every page. */
 const ICONS = {
   real: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>',
+  sports: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M17 7l4-4M18 3h3v3"/></svg>',
   predict: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>',
   players: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l5-6 4 4 7-8"/><path d="M14 7h5v5"/></svg>',
   coach: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3z"/><path d="M10 22h4"/><circle cx="12" cy="10" r="2"/></svg>',
@@ -14,6 +15,7 @@ const PAGES = [
   ["scorecard.html", "scorecard", "Model Scorecard"],
   ["batch.html", "batch", "Batch Scoring"],
   ["realdata.html", "real", "Real Data"],
+  ["sports.html", "sports", "Multi-Sport"],
 ];
 
 const store = {
