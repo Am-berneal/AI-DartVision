@@ -94,6 +94,17 @@
     </div>
   </div>
 
+  <!-- ===================== KNOWN LIMITATIONS ===================== -->
+  <div class="section-title"><span class="label">Honest evaluation</span><h2>Known limitations in the real world</h2><span class="muted" style="font-size:13px">What the system does not solve yet, and how it could be fixed</span></div>
+  <div class="card" style="margin-bottom:22px">
+    <div class="row" style="justify-content:space-between;gap:12px;margin-bottom:14px">
+      <div class="fchips" id="limF"></div>
+      <span class="chip sky" id="limN"></span>
+    </div>
+    <div class="grid g2" id="limGrid" style="gap:14px"></div>
+    <div class="takeaway" style="margin-top:16px"><span>ⓘ</span><div><b>Summary:</b> DartVision reliably scores a landing coordinate, but in the real world the bottleneck is getting an accurate coordinate from a camera (detection, calibration, parallax, wire ambiguity), and the player analytics and coaching still need validation on real, labelled players.</div></div>
+  </div>
+
   <div class="card sky" style="box-shadow:none;font-family:var(--mono);font-size:12px;line-height:1.6">
     Simulated players are labelled in gold. Real-data results come from held-out DeepDarts sessions. Every number on this page is read from the pipeline outputs (results/metrics.csv, results/sports_metrics.csv, results/coach_log.jsonl).
   </div>
@@ -144,6 +155,55 @@ function drawSportIcons() {
     ["Darts", "Archery", "10 m rifle"].map((t, i) => `<text x="${50 + i * 100}" y="96" text-anchor="middle" font-size="10" font-family="IBM Plex Mono" fill="#6B6F78">${t}</text>`).join("");
 }
 
+
+/* ===================== KNOWN LIMITATIONS ===================== */
+const LIM_CATS = { data: "Data & evaluation", camera: "Camera → coordinates", models: "Models", coach: "GenAI coach", sports: "Multi-sport", deploy: "Deployment" };
+let limCat = "all";
+function limits() {
+  const t = (m, f) => ROWS.find(r => r.eval_set === "test" && r.model === m && r.feature_set === f);
+  const knn = t("KNN", "engineered"), lr = t("Logistic Regression", "raw");
+  const wireEx = knn ? `KNN is ${pct(knn.accuracy, 1)} accurate overall but ${pct(knn.boundary_accuracy, 1)} on wire throws` : "accuracy drops on throws next to a wire";
+  const lrEx = lr ? `Logistic Regression on raw (x, y) reaches only ${pct(lr.accuracy, 1)} on darts` : "linear models fail on raw (x, y)";
+  return [
+    ["data", "Partly circular evaluation", "Training labels come from the same geometry rules used to check the models, so near-100% accuracy shows the models copy a formula, not that they score real games.", "Present ML as a learned replacement for the rules on noisy coordinates; judge it on real data only."],
+    ["data", "Simulated players", "Drift, fatigue and improvement in Player Analysis come from simulated throwers, not people.", "Record real sessions with player name and intended target for every dart."],
+    ["data", "Narrow real dataset", "DeepDarts covers one board, two camera setups and few throwers; trebles and bulls are rare.", "Add more boards, players and lighting; balance rare regions."],
+    ["data", "Intended target unknown", "Real darts have no aim recorded, so hit rate, bias and error cannot be measured on real throws.", "Log the target (the Batch page already accepts a target column)."],
+    ["data", "Small samples", "3–5 sessions per player gives an unreliable trend line; no confidence intervals are shown.", "Bootstrap confidence intervals and minimum dart counts before showing a trend."],
+    ["camera", "Needs (x, y) as input", "A real board gives images. Finding the dart tip is the hardest step and is not done live here.", "Add a detection model (DeepDarts-style keypoints or YOLO) in front of the pipeline."],
+    ["camera", "Calibration and camera angle", "A wrong calibration point, board rotation or lens distortion shifts every dart; the angled D2 camera is harder than face-on D1.", "Automatic calibration, multiple cameras, per-session calibration checks."],
+    ["camera", "Parallax and dart angle", "Darts enter at an angle, so the visible tip can sit millimetres from the true landing point.", "Two or three cameras with triangulation."],
+    ["camera", "Wire ambiguity", `The wire is about 1 mm thick, so millimetre errors change the score near it: ${wireEx}.`, "Return a 'borderline' flag instead of a confident answer near wires."],
+    ["camera", "Events outside x, y", "Bounce-outs, darts falling out and darts landing in other darts cannot be described by one coordinate.", "Video-based event detection."],
+    ["camera", "Board variation", "Wire layout, treble width and wear differ between boards; one WDF board specification is assumed.", "A board profile per setup, like the multi-sport target profiles."],
+    ["models", "Confidence not calibrated", "The Decision Tree reports ~100% confidence almost everywhere; SVM gives no probability.", "Calibrate probabilities (Platt / isotonic) or report distance-to-wire as uncertainty."],
+    ["models", "Hand-made features", `Polar features work because the rules are known in advance; ${lrEx}.`, "Acceptable here; state the dependence on domain knowledge."],
+    ["models", "Sim-to-real gap", "Synthetic training data has no camera noise, so real performance depends on detection quality.", "Train with realistic noise: jitter, rotation, perspective."],
+    ["coach", "Only numbers are verified", "The checker confirms quoted figures, not whether the advice itself is right for a player.", "Coach-reviewed drill library; expert evaluation of outputs."],
+    ["coach", "External API dependency", "Gemini brings cost, rate limits, latency, outages and API-key security.", "Rule-based fallback already exists; add caching."],
+    ["coach", "Privacy", "Player statistics are sent to a third-party AI service.", "Consent, anonymised player IDs, or a locally hosted model."],
+    ["coach", "Language quality", "Hindi and Punjabi output has not been reviewed by native speakers.", "Native-speaker review."],
+    ["sports", "Synthetic only", "No real archery or shooting shots have been tested yet.", "Import shot exports from electronic scoring targets."],
+    ["sports", "Assumed specifications", "Ring sizes must be checked against ISSF and World Archery rulebooks; arrow diameter (5.5 mm) and linear decimal scoring are approximations.", "Cite the rulebooks; every value is configurable in sports.py."],
+    ["sports", "Limited value in shooting", "Electronic shooting targets already give exact scores, so ML adds little there.", "Position it as a generalisation demo and for camera or paper-target scoring."],
+    ["deploy", "Free hosting limits", "512 MB RAM and 0.1 CPU; the app sleeps when idle, so the first visit can take up to a minute, and models retrain on every deploy.", "Paid instance or stored, pre-trained models."],
+    ["deploy", "No database or accounts", "Uploads and prediction logs disappear when the tab closes; there is no login or access control.", "Add a database (e.g. PostgreSQL) and authentication."],
+    ["deploy", "Simple CSV parser", "Quoted commas, other delimiters and Excel files are not handled.", "A proper CSV library and upload validation."],
+    ["deploy", "Not tested in real time", "No live camera stream or match-speed latency test yet.", "Latency tests with real hardware."],
+  ];
+}
+function renderLimits() {
+  const L = limits(), counts = { all: L.length };
+  L.forEach(l => counts[l[0]] = (counts[l[0]] || 0) + 1);
+  $("limF").innerHTML = [["all", "All"], ...Object.entries(LIM_CATS)].map(([k, n]) => `<button class="fchip red ${k === limCat ? "on" : ""}" data-c="${k}">${n} (${counts[k] || 0})</button>`).join("");
+  document.querySelectorAll("#limF .fchip").forEach(b => b.onclick = () => { limCat = b.dataset.c; renderLimits(); });
+  const shown = L.filter(l => limCat === "all" || l[0] === limCat);
+  $("limN").textContent = `${shown.length} of ${L.length} limitations`;
+  $("limGrid").innerHTML = shown.map(([c, title, why, fix]) => `<div class="insight">
+    <span class="label">${esc(LIM_CATS[c])}</span><b>${esc(title)}</b><p>${esc(why)}</p>
+    <p style="margin-top:8px"><span class="tag ok">Fix</span> ${esc(fix)}</p></div>`).join("");
+}
+renderLimits();
 initShell("overview").catch(() => {}).finally(async () => {
   quick(); drawSportIcons();
   try {
@@ -155,7 +215,7 @@ initShell("overview").catch(() => {}).finally(async () => {
       $("kBestS").textContent = `${b.model} · ${b.feature_set}`;
       $("kBestW").textContent = `wire ${pct(b.boundary_accuracy, 1)}`;
     }
-    renderLeaderboard();
+    renderLeaderboard(); renderLimits();
   } catch (e) { noData($("lb"), "Metrics unavailable: " + e.message); }
   try {
     const rd = await api("/api/real");
